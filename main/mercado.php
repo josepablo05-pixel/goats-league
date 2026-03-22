@@ -418,6 +418,50 @@ $transfers = $pdo->query("
             <?php endif; ?>
         </div>
 
+        <!-- INGRESOS POR JORNADA -->
+        <?php
+        $financeHistory = $pdo->query("
+            SELECT tf.*, t.name as team_name, m.match_date,
+                   t1.name as team1_name, t2.name as team2_name
+            FROM team_finances tf
+            JOIN teams t ON tf.team_id = t.id
+            JOIN matches m ON tf.match_id = m.id
+            JOIN teams t1 ON m.team1_id = t1.id
+            JOIN teams t2 ON m.team2_id = t2.id
+            ORDER BY m.match_date DESC, t.name ASC
+            LIMIT 60
+        ")->fetchAll();
+        ?>
+        <h4 class="mt-5 mb-3 border-bottom border-secondary pb-2"><i class="bi bi-cash-stack text-warning"></i> Ingresos por Jornada</h4>
+        <?php if (count($financeHistory) > 0): ?>
+        <div class="table-responsive mb-5 shadow rounded">
+            <table class="table table-dark table-hover align-middle mb-0 border border-secondary">
+                <thead class="table-secondary text-dark small">
+                    <tr>
+                        <th>Partido</th>
+                        <th>Fecha</th>
+                        <th>Equipo</th>
+                        <th class="text-end">Ingreso Recibido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach($financeHistory as $f): ?>
+                    <tr>
+                        <td class="small text-muted">
+                            <?php echo htmlspecialchars($f['team1_name']); ?> vs <?php echo htmlspecialchars($f['team2_name']); ?>
+                        </td>
+                        <td class="small text-muted"><?php echo date('d/m/Y', strtotime($f['match_date'])); ?></td>
+                        <td class="fw-bold text-primary"><?php echo htmlspecialchars($f['team_name']); ?></td>
+                        <td class="text-end text-success fw-bold">+<?php echo number_format($f['amount'], 2); ?> <i class="bi bi-coin small"></i></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php else: ?>
+        <div class="alert alert-secondary text-muted mb-5">Aún no se han repartido ingresos de ninguna jornada.</div>
+        <?php endif; ?>
+
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

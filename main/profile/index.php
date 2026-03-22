@@ -211,6 +211,23 @@ endif; ?>
                     </div>
                 </div>
 
+                <?php if ($_SESSION['role'] === 'admin'): ?>
+                <!-- Panel Administrador -->
+                <div class="card bg-dark border-warning text-light mb-4 shadow">
+                    <div class="card-header bg-transparent border-warning">
+                        <h5 class="mb-0 text-warning"><i class="bi bi-shield-lock-fill me-2"></i> Panel Administrador</h5>
+                    </div>
+                    <div class="card-body d-flex gap-3 flex-wrap">
+                        <a href="../admin_mercado.php" class="btn btn-outline-warning fw-bold flex-grow-1">
+                            <i class="bi bi-shop-window"></i> Admin Mercado
+                        </a>
+                        <a href="../admin_logos.php" class="btn btn-outline-warning fw-bold flex-grow-1">
+                            <i class="bi bi-image-fill"></i> Admin Logos
+                        </a>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Cambio de Contraseña -->
                 <div class="card bg-dark border-secondary text-light mb-4 shadow">
                     <div class="card-header bg-transparent border-secondary d-flex justify-content-between align-items-center">
