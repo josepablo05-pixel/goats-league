@@ -93,9 +93,16 @@ endif; ?>
             <table class="table table-dark table-hover mb-0">
                 <thead class="table-active">
                     <tr>
-                        <th class="py-3 px-4">Posición</th>
+                        <th class="py-3 px-4">#</th>
                         <th class="py-3">Equipo</th>
-                        <th class="py-3 text-center">Puntos</th>
+                        <th class="py-3 text-center d-none d-sm-table-cell" title="Partidos Jugados">PJ</th>
+                        <th class="py-3 text-center text-success" title="Victorias">V</th>
+                        <th class="py-3 text-center text-warning" title="Empates">E</th>
+                        <th class="py-3 text-center text-danger" title="Derrotas">D</th>
+                        <th class="py-3 text-center d-none d-md-table-cell" title="Goles a Favor">GF</th>
+                        <th class="py-3 text-center d-none d-md-table-cell" title="Goles en Contra">GC</th>
+                        <th class="py-3 text-center d-none d-lg-table-cell" title="Diferencia de Goles">DG</th>
+                        <th class="py-3 text-center" title="Puntos">Pts</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -106,6 +113,15 @@ foreach ($teams as $team):
                         <tr>
                             <td class="px-4 fw-bold text-warning"><?php echo $position++; ?>°</td>
                             <td><a href="team.php?id=<?php echo htmlspecialchars($team['id']); ?>" class="text-white text-decoration-none fw-semibold border-bottom border-primary pb-1"><?php echo htmlspecialchars($team['name']); ?></a></td>
+                            <td class="text-center text-muted d-none d-sm-table-cell"><?php echo $team['pj']; ?></td>
+                            <td class="text-center fw-bold text-success"><?php echo $team['v']; ?></td>
+                            <td class="text-center fw-bold text-warning"><?php echo $team['e']; ?></td>
+                            <td class="text-center fw-bold text-danger"><?php echo $team['d']; ?></td>
+                            <td class="text-center d-none d-md-table-cell"><?php echo $team['gf']; ?></td>
+                            <td class="text-center d-none d-md-table-cell"><?php echo $team['gc']; ?></td>
+                            <td class="text-center fw-bold d-none d-lg-table-cell <?php echo $team['dg'] >= 0 ? 'text-success' : 'text-danger'; ?>">
+                                <?php echo ($team['dg'] >= 0 ? '+' : '') . $team['dg']; ?>
+                            </td>
                             <td class="text-center">
                                 <span class="badge bg-primary fs-6"><?php echo $team['points']; ?></span>
                             </td>
