@@ -22,8 +22,13 @@ function cloudinary_upload(string $filePath, string $folder = 'goats-league', st
     $params = ['folder' => $folder, 'timestamp' => $timestamp];
     if (!empty($publicId)) $params['public_id'] = $publicId;
 
+    // Sort and build signature string WITHOUT URL-encoding (Cloudinary needs raw values)
     ksort($params);
-    $paramStr = http_build_query($params, '', '&', PHP_QUERY_RFC3986);
+    $parts = [];
+    foreach ($params as $k => $v) {
+        $parts[] = $k . '=' . $v;
+    }
+    $paramStr  = implode('&', $parts);
     $signature = sha1($paramStr . CLOUDINARY_API_SECRET);
 
     $postFields = array_merge($params, [
