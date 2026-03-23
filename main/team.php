@@ -35,7 +35,7 @@ $players = $stmtPlayers->fetchAll();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="./style.css">
 </head>
-<body class="bg-dark text-white">
+<body class="text-white">
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary">
         <div class="container-fluid">
@@ -48,14 +48,15 @@ $players = $stmtPlayers->fetchAll();
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Equipos</a>
                         <ul class="dropdown-menu dropdown-menu-dark">
-                            <?php 
-                            if (!isset($navTeams)) {
-                                $navTeams = $pdo->query("SELECT id, name FROM teams ORDER BY name ASC")->fetchAll();
-                            }
-                            foreach ($navTeams as $nT): 
-                            ?>
-                                <li><a class="dropdown-item" href="<?php echo (strpos($_SERVER['SCRIPT_NAME'], 'profile/') !== false) ? '../' : './'; ?>team.php?id=<?php echo $nT['id']; ?>"><?php echo htmlspecialchars($nT['name']); ?></a></li>
-                            <?php endforeach; ?>
+                            <?php
+if (!isset($navTeams)) {
+    $navTeams = $pdo->query("SELECT id, name FROM teams ORDER BY name ASC")->fetchAll();
+}
+foreach ($navTeams as $nT):
+?>
+                                <li><a class="dropdown-item" href="<?php echo(strpos($_SERVER['SCRIPT_NAME'], 'profile/') !== false) ? '../' : './'; ?>team.php?id=<?php echo $nT['id']; ?>"><?php echo htmlspecialchars($nT['name']); ?></a></li>
+                            <?php
+endforeach; ?>
                         </ul>
                     </li>
                     <li class="nav-item">
@@ -81,17 +82,21 @@ $players = $stmtPlayers->fetchAll();
                             <a class="nav-link text-white me-3 d-flex align-items-center" href="profile/" style="padding: 0;">
                                 <?php if (!empty($_SESSION['profile_picture'])): ?>
                                     <img src="<?php echo htmlspecialchars($_SESSION['profile_picture']); ?>" alt="Perfil" class="rounded-circle" style="width: 36px; height: 36px; object-fit: cover; border: 2px solid #0d6efd;">
-                                <?php else: ?>
+                                <?php
+    else: ?>
                                     <div class="rounded-circle bg-secondary d-flex justify-content-center align-items-center text-white fw-bold" style="width: 36px; height: 36px; font-size: 16px; border: 2px solid #6c757d;">
                                         <?php echo strtoupper(substr($_SESSION['user'], 0, 1)); ?>
                                     </div>
-                                <?php endif; ?>
+                                <?php
+    endif; ?>
                                 <span class="ms-2 d-none d-lg-inline fw-semibold"><?php echo htmlspecialchars($_SESSION['user']); ?></span>
                             </a>
                             <a class="btn btn-outline-danger btn-sm" href="./login/logout.php">Cerrar Sesión</a>
-                        <?php else: ?>
+                        <?php
+else: ?>
                             <a class="btn btn-outline-light btn-sm" href="./login/login.php">Iniciar Sesión</a>
-                        <?php endif; ?>
+                        <?php
+endif; ?>
                     </li>
                 </ul>
             </div>
@@ -105,11 +110,13 @@ $players = $stmtPlayers->fetchAll();
             <div class="col-md-3 text-center mb-3 mb-md-0">
                 <?php if (!empty($team['logo']) && file_exists(__DIR__ . '/' . $team['logo'])): ?>
                     <img src="<?php echo htmlspecialchars($team['logo']); ?>" alt="Logo Equipo" class="img-fluid rounded-circle" style="max-width: 150px; border: 5px solid #0d6efd;">
-                <?php else: ?>
+                <?php
+else: ?>
                     <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center mx-auto" style="width: 150px; height: 150px; font-size: 60px; border: 5px solid #6c757d;">
                         <?php echo strtoupper(substr($team['name'], 0, 1)); ?>
                     </div>
-                <?php endif; ?>
+                <?php
+endif; ?>
             </div>
             <div class="col-md-9 text-center text-md-start">
                 <h1 class="display-5 fw-bold text-primary mb-1"><?php echo htmlspecialchars($team['name']); ?></h1>
@@ -129,16 +136,19 @@ $players = $stmtPlayers->fetchAll();
                                 <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-warning text-dark mt-2" style="font-size: 0.8rem; z-index: 2;">
                                     <i class="bi bi-star-fill text-dark me-1"></i> Capitán
                                 </span>
-                            <?php endif; ?>
+                            <?php
+        endif; ?>
                             
                             <div class="card-body mt-3">
                                 <?php if (!empty($player['profile_picture'])): ?>
                                     <img src="<?php echo htmlspecialchars($player['profile_picture']); ?>" alt="Perfil Jugador" class="rounded-circle mb-3" style="width: 80px; height: 80px; object-fit: cover; border: 3px solid #6c757d;">
-                                <?php else: ?>
+                                <?php
+        else: ?>
                                     <div class="rounded-circle bg-secondary d-flex justify-content-center align-items-center mx-auto mb-3" style="width: 80px; height: 80px; font-size: 35px; color: white;">
                                         <?php echo strtoupper(substr($player['username'], 0, 1)); ?>
                                     </div>
-                                <?php endif; ?>
+                                <?php
+        endif; ?>
                                 
                                 <h5 class="card-title text-capitalize fw-bold mb-0">
                                     <?php echo htmlspecialchars($player['username']); ?>
@@ -152,14 +162,17 @@ $players = $stmtPlayers->fetchAll();
                             </div>
                         </div>
                     </div>
-                <?php endforeach; ?>
-            <?php else: ?>
+                <?php
+    endforeach; ?>
+            <?php
+else: ?>
                 <div class="col-12">
                     <div class="alert alert-secondary bg-dark border-secondary text-muted text-center" role="alert">
                         Aún no hay jugadores registrados en este equipo.
                     </div>
                 </div>
-            <?php endif; ?>
+            <?php
+endif; ?>
         </div>
 
     </div>

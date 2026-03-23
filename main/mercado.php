@@ -287,7 +287,7 @@ $transfers = $pdo->query("
                         <span class="badge bg-secondary"><?php echo $protectedCount; ?>/2 Protegidos</span>
                     </div>
                     <div class="card-body p-0">
-                        <div class="alert alert-dark small m-0 border-0 border-bottom border-secondary rounded-0 text-muted">
+                        <div class="alert-dark small p-2 m-0 border-0 border-bottom border-secondary rounded-0 text-muted">
                             <i class="bi bi-info-circle"></i> Antes de que abra el mercado, el capitán puede bloquear a 2 jugadores para evitar que se los roben.
                         </div>
                         <ul class="list-group list-group-flush bg-transparent">
