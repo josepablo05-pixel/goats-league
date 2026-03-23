@@ -99,8 +99,14 @@ $myTactics = $stmtTac->fetchAll();
 $loadedPositions = null;
 if (isset($_GET['load_tactic'])) {
     $tid = (int)$_GET['load_tactic'];
-    $stmtLoad = $pdo->prepare("SELECT positions FROM tactics WHERE id = ? AND user_id = ?");
-    $stmtLoad->execute([$tid, $myUserId]);
+    // Permitir cargar tácticas propias O de cualquier miembro del equipo
+    if ($myTeamId) {
+        $stmtLoad = $pdo->prepare("SELECT positions FROM tactics WHERE id = ? AND (user_id = ? OR team_id = ?)");
+        $stmtLoad->execute([$tid, $myUserId, $myTeamId]);
+    } else {
+        $stmtLoad = $pdo->prepare("SELECT positions FROM tactics WHERE id = ? AND user_id = ?");
+        $stmtLoad->execute([$tid, $myUserId]);
+    }
     $rowLoad = $stmtLoad->fetch();
     if ($rowLoad) {
         $loadedPositions = $rowLoad['positions'];

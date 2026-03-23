@@ -67,6 +67,29 @@ $matches = $stmtMatches->fetchAll();
             border-radius: 50%;
             border: 2px solid #6c757d;
         }
+        .jornada-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1rem;
+            margin-top: 2rem;
+        }
+        .jornada-header .badge-jornada {
+            background: linear-gradient(135deg, #0d6efd, #6f42c1);
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 6px 16px;
+            border-radius: 20px;
+            white-space: nowrap;
+            letter-spacing: 0.5px;
+        }
+        .jornada-header hr {
+            flex: 1;
+            border-color: #444;
+            opacity: 1;
+            margin: 0;
+        }
     </style>
 </head>
 <body class="text-white">
@@ -201,83 +224,88 @@ endif; ?>
         <?php
 endif; ?>
         
-        <div class="row row-cols-1 row-cols-md-2 g-4 mb-5">
-            <?php if (count($matches) > 0): ?>
-                <?php foreach ($matches as $match): ?>
-                    <div class="col">
-                        <div class="card h-100 bg-dark border-secondary shadow match-card" onclick="window.location.href='match.php?id=<?php echo $match['id']; ?>'">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <small class="text-muted"><i class="bi bi-calendar-event me-1"></i> <?php echo $match['match_date'] ? date('d/m/Y H:i', strtotime($match['match_date'])) : 'Fecha por definir'; ?></small>
-                                    <?php if ($match['status'] === 'finished'): ?>
-                                        <span class="badge bg-success">Finalizado</span>
-                                    <?php
-        else: ?>
-                                        <span class="badge bg-warning text-dark">Pendiente</span>
-                                    <?php
-        endif; ?>
-                                </div>
-                                
-                                <div class="row align-items-center text-center">
-                                    <!-- Equipo 1 -->
-                                    <div class="col-4">
-                                        <?php if (!empty($match['team1_logo'])): ?>
-                                            <img src="<?php echo htmlspecialchars($match['team1_logo']); ?>" class="team-logo-small mb-2" alt="Logo">
-                                        <?php
-        else: ?>
-                                            <div class="team-logo-small d-flex justify-content-center align-items-center mx-auto mb-2 bg-secondary fw-bold text-white fs-4">
-                                                <?php echo strtoupper(substr($match['team1_name'], 0, 1)); ?>
-                                            </div>
-                                        <?php
-        endif; ?>
-                                        <div class="fw-semibold text-truncate" title="<?php echo htmlspecialchars($match['team1_name']); ?>"><?php echo htmlspecialchars($match['team1_name']); ?></div>
-                                    </div>
-                                    
-                                    <!-- Marcador -->
-                                    <div class="col-4">
+        <?php if (count($matches) > 0): ?>
+            <?php
+            $matchesPerJornada = 2;
+            $jornadas = array_chunk($matches, $matchesPerJornada);
+            foreach ($jornadas as $jornadaNum => $jornada):
+                $numJornada = $jornadaNum + 1;
+            ?>
+                <!-- Cabecera de Jornada -->
+                <div class="jornada-header">
+                    <hr>
+                    <span class="badge-jornada">⚽ Jornada <?php echo $numJornada; ?></span>
+                    <hr>
+                </div>
+
+                <div class="row row-cols-1 row-cols-md-2 g-4 mb-3">
+                    <?php foreach ($jornada as $match): ?>
+                        <div class="col">
+                            <div class="card h-100 bg-dark border-secondary shadow match-card" onclick="window.location.href='match.php?id=<?php echo $match['id']; ?>'">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <small class="text-muted"><i class="bi bi-calendar-event me-1"></i> <?php echo $match['match_date'] ? date('d/m/Y H:i', strtotime($match['match_date'])) : 'Fecha por definir'; ?></small>
                                         <?php if ($match['status'] === 'finished'): ?>
-                                            <div class="fs-2 fw-bold text-primary"><?php echo $match['team1_score']; ?> - <?php echo $match['team2_score']; ?></div>
-                                        <?php
-        else: ?>
-                                            <div class="fs-4 fw-bold text-muted">VS</div>
-                                            <small class="text-muted d-block mt-1">Por jugar</small>
-                                        <?php
-        endif; ?>
+                                            <span class="badge bg-success">Finalizado</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-warning text-dark">Pendiente</span>
+                                        <?php endif; ?>
                                     </div>
-                                    
-                                    <!-- Equipo 2 -->
-                                    <div class="col-4">
-                                        <?php if (!empty($match['team2_logo'])): ?>
-                                            <img src="<?php echo htmlspecialchars($match['team2_logo']); ?>" class="team-logo-small mb-2" alt="Logo">
-                                        <?php
-        else: ?>
-                                            <div class="team-logo-small d-flex justify-content-center align-items-center mx-auto mb-2 bg-secondary fw-bold text-white fs-4">
-                                                <?php echo strtoupper(substr($match['team2_name'], 0, 1)); ?>
-                                            </div>
-                                        <?php
-        endif; ?>
-                                        <div class="fw-semibold text-truncate" title="<?php echo htmlspecialchars($match['team2_name']); ?>"><?php echo htmlspecialchars($match['team2_name']); ?></div>
+
+                                    <div class="row align-items-center text-center">
+                                        <!-- Equipo 1 -->
+                                        <div class="col-4">
+                                            <?php if (!empty($match['team1_logo'])): ?>
+                                                <img src="<?php echo htmlspecialchars($match['team1_logo']); ?>" class="team-logo-small mb-2" alt="Logo">
+                                            <?php else: ?>
+                                                <div class="team-logo-small d-flex justify-content-center align-items-center mx-auto mb-2 bg-secondary fw-bold text-white fs-4">
+                                                    <?php echo strtoupper(substr($match['team1_name'], 0, 1)); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="fw-semibold text-truncate" title="<?php echo htmlspecialchars($match['team1_name']); ?>"><?php echo htmlspecialchars($match['team1_name']); ?></div>
+                                        </div>
+
+                                        <!-- Marcador -->
+                                        <div class="col-4">
+                                            <?php if ($match['status'] === 'finished'): ?>
+                                                <div class="fs-2 fw-bold text-primary"><?php echo $match['team1_score']; ?> - <?php echo $match['team2_score']; ?></div>
+                                            <?php else: ?>
+                                                <div class="fs-4 fw-bold text-muted">VS</div>
+                                                <small class="text-muted d-block mt-1">Por jugar</small>
+                                            <?php endif; ?>
+                                        </div>
+
+                                        <!-- Equipo 2 -->
+                                        <div class="col-4">
+                                            <?php if (!empty($match['team2_logo'])): ?>
+                                                <img src="<?php echo htmlspecialchars($match['team2_logo']); ?>" class="team-logo-small mb-2" alt="Logo">
+                                            <?php else: ?>
+                                                <div class="team-logo-small d-flex justify-content-center align-items-center mx-auto mb-2 bg-secondary fw-bold text-white fs-4">
+                                                    <?php echo strtoupper(substr($match['team2_name'], 0, 1)); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                            <div class="fw-semibold text-truncate" title="<?php echo htmlspecialchars($match['team2_name']); ?>"><?php echo htmlspecialchars($match['team2_name']); ?></div>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="card-footer bg-transparent border-secondary text-center">
-                                <span class="text-primary small fw-bold">VER DETALLES <i class="bi bi-arrow-right"></i></span>
+                                <div class="card-footer bg-transparent border-secondary text-center">
+                                    <span class="text-primary small fw-bold">VER DETALLES <i class="bi bi-arrow-right"></i></span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                <?php
-    endforeach; ?>
-            <?php
-else: ?>
+                    <?php endforeach; ?>
+                </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div class="row">
                 <div class="col-12 text-center">
                     <div class="alert bg-dark border-secondary text-muted p-5">
                         <i class="bi bi-calendar-x fs-1 d-block mb-3"></i>
                         <h5>No hay partidos programados todavía.</h5>
                     </div>
                 </div>
-            <?php
-endif; ?>
-        </div>
+            </div>
+        <?php endif; ?>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

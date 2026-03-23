@@ -111,29 +111,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stats[$row['team_id']][$row['event_type']] = (int)$row['count'];
             }
             
-            $myGoals = $stats[$pTeamId]['goal'] ?? 0;
+            $myGoals    = $stats[$pTeamId]['goal']     ?? 0;
             $myOwnGoals = $stats[$pTeamId]['own_goal'] ?? 0;
-            $myAssists = $stats[$pTeamId]['assist'] ?? 0;
-            
-            $oppGoals = $stats[$opponentTeamId]['goal'] ?? 0;
-            $oppOwnGoals = $stats[$opponentTeamId]['own_goal'] ?? 0;
+            $myAssists  = $stats[$pTeamId]['assist']   ?? 0;
+            $oppGoals     = $stats[$opponentTeamId]['goal']     ?? 0;
+            $oppOwnGoals  = $stats[$opponentTeamId]['own_goal'] ?? 0;
             
             if ($eventType === 'goal') {
                 $officialScore = ($pTeamId == $match['team1_id']) ? $match['team1_score'] : $match['team2_score'];
                 if (($myGoals + $oppOwnGoals) >= $officialScore) {
                     $allowInsert = false;
-                    $statError = "Error: El equipo oficialmentente solo ha marcado $officialScore goles. No puedes adjudicar más (incluyendo goles en propia del rival).";
+                    $statError = "El equipo oficialmente solo ha marcado $officialScore goles. No puedes adjudicar más (incluyendo goles en propia del rival).";
                 }
             } elseif ($eventType === 'own_goal') {
                 $officialOppScore = ($opponentTeamId == $match['team1_id']) ? $match['team1_score'] : $match['team2_score'];
                 if (($oppGoals + $myOwnGoals) >= $officialOppScore) {
                     $allowInsert = false;
-                    $statError = "Error: No puedes marcar un gol en propia, el equipo rival ya tiene justificados todo sus goles oficiales ($officialOppScore).";
+                    $statError = "No puedes marcar un gol en propia, el equipo rival ya tiene justificados todos sus goles oficiales ($officialOppScore).";
                 }
             } elseif ($eventType === 'assist') {
                 if ($myAssists >= $myGoals) {
                     $allowInsert = false;
-                    $statError = "Error: No puede haber más asistencias que goles normales del equipo. (¡Recuerda que los goles en propia puerta del rival no pueden llevar asistencia!)";
+                    $statError = "No puede haber más asistencias que goles normales del equipo.";
                 }
             }
             
@@ -141,6 +140,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare("INSERT INTO match_events (match_id, player_id, event_type) VALUES (?, ?, ?)");
                 $stmt->execute([$matchId, $playerId, $eventType]);
             }
+        }
+
+        // Si viene de AJAX, devolver JSON y terminar aquí
+        if (!empty($_POST['ajax'])) {
+            header('Content-Type: application/json');
+            if ($allowInsert) {
+                echo json_encode(['ok' => true]);
+            } else {
+                echo json_encode(['ok' => false, 'error' => $statError ?? 'Error desconocido.']);
+            }
+            exit;
         }
     }
 
@@ -178,6 +188,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'rate_player' && $userId && $match['status'] === 'finished') {
         $targetId = (int)$_POST['target_id'];
         $rating = (float)$_POST['rating'];
+        $ok = false;
+        $errorMsg = 'Error desconocido al valorar.';
         
         // Verificar que yo juegue en este partido
         $stmtCheckMe = $pdo->prepare("SELECT 1 FROM match_lineups WHERE match_id = ? AND player_id = ?");
@@ -197,8 +209,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Actualizar la media global del jugador objetivo
                     $stmtAvg = $pdo->prepare("UPDATE users SET rating = (SELECT AVG(rating) FROM match_ratings WHERE target_id = ?) WHERE id = ?");
                     $stmtAvg->execute([$targetId, $targetId]);
-                } catch (PDOException $e) {}
+                    
+                    $ok = true;
+                } catch (PDOException $e) {
+                    $errorMsg = 'Error DB (ratings): ' . $e->getMessage();
+                }
+            } else {
+                $errorMsg = 'El jugador que intentas valorar no jugó en el equipo contrario en este partido.';
             }
+        } else {
+            $errorMsg = 'No jugaste en este partido, no puedes valorar.';
+        }
+
+        if (!empty($_POST['ajax'])) {
+            header('Content-Type: application/json');
+            if ($ok) {
+                echo json_encode(['ok' => true]);
+            } else {
+                echo json_encode(['ok' => false, 'error' => $errorMsg]);
+            }
+            exit;
         }
     }
 }
@@ -263,13 +293,10 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary">
         <div class="container-fluid">
             <a class="navbar-brand" href="index.php">⚽ Goats League</a>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center">
-                    <li class="nav-item">
-                        <a class="nav-link" href="calendario.php"><i class="bi bi-arrow-left"></i> Volver a Calendario</a>
-                    </li>
-                </ul>
-            </div>
+            <!-- Botón volver visible siempre (móvil y pc) -->
+            <a class="btn btn-outline-secondary btn-sm ms-auto" href="calendario.php">
+                <i class="bi bi-arrow-left"></i> Calendario
+            </a>
         </div>
     </nav>
     
@@ -383,20 +410,26 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                     <form method="POST" class="mt-3 p-3 bg-secondary bg-opacity-10 border border-secondary rounded">
                         <input type="hidden" name="action" value="add_lineup">
                         <input type="hidden" name="team_id" value="<?php echo $match['team1_id']; ?>">
+                        <?php
+                        $selectTeamId1 = $isAdmin ? $match['team1_id'] : $myTeamId;
+                        $alreadyIn1 = array_column($lineups[$match['team1_id']], 'id');
+                        $stmtRo1 = $pdo->prepare("SELECT id, username FROM users WHERE team_id = ? ORDER BY username");
+                        $stmtRo1->execute([$selectTeamId1]);
+                        $availPlayers1 = array_filter($stmtRo1->fetchAll(), fn($r) => !in_array($r['id'], $alreadyIn1));
+                        ?>
+                        <?php if (count($availPlayers1) > 0): ?>
                         <div class="input-group">
                             <select name="player_id" class="form-select bg-dark text-light border-secondary" required>
                                 <option value="">Selecciona un jugador...</option>
-                                <?php
-                                $selectTeamId = $isAdmin ? $match['team1_id'] : $myTeamId;
-                                $stmtRo = $pdo->prepare("SELECT id, username FROM users WHERE team_id = ?");
-                                $stmtRo->execute([$selectTeamId]);
-                                foreach ($stmtRo->fetchAll() as $ro) {
-                                    echo '<option value="'.$ro['id'].'">'.htmlspecialchars($ro['username']).'</option>';
-                                }
-                                ?>
+                                <?php foreach ($availPlayers1 as $ro): ?>
+                                    <option value="<?php echo $ro['id']; ?>"><?php echo htmlspecialchars($ro['username']); ?></option>
+                                <?php endforeach; ?>
                             </select>
                             <button type="submit" class="btn btn-outline-primary">Añadir a la lista</button>
                         </div>
+                        <?php else: ?>
+                            <p class="text-muted small mb-0"><i class="bi bi-check-all"></i> Todos los jugadores del equipo ya están convocados.</p>
+                        <?php endif; ?>
                     </form>
                 <?php endif; ?>
             </div>
@@ -443,20 +476,26 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                     <form method="POST" class="mt-3 p-3 bg-secondary bg-opacity-10 border border-secondary rounded">
                         <input type="hidden" name="action" value="add_lineup">
                         <input type="hidden" name="team_id" value="<?php echo $match['team2_id']; ?>">
+                        <?php
+                        $selectTeamId2 = $isAdmin ? $match['team2_id'] : $myTeamId;
+                        $alreadyIn2 = array_column($lineups[$match['team2_id']], 'id');
+                        $stmtRo2 = $pdo->prepare("SELECT id, username FROM users WHERE team_id = ? ORDER BY username");
+                        $stmtRo2->execute([$selectTeamId2]);
+                        $availPlayers2 = array_filter($stmtRo2->fetchAll(), fn($r) => !in_array($r['id'], $alreadyIn2));
+                        ?>
+                        <?php if (count($availPlayers2) > 0): ?>
                         <div class="input-group">
                             <select name="player_id" class="form-select bg-dark text-light border-secondary" required>
                                 <option value="">Selecciona un jugador...</option>
-                                <?php
-                                $selectTeamId = $isAdmin ? $match['team2_id'] : $myTeamId;
-                                $stmtRo = $pdo->prepare("SELECT id, username FROM users WHERE team_id = ?");
-                                $stmtRo->execute([$selectTeamId]);
-                                foreach ($stmtRo->fetchAll() as $ro) {
-                                    echo '<option value="'.$ro['id'].'">'.htmlspecialchars($ro['username']).'</option>';
-                                }
-                                ?>
+                                <?php foreach ($availPlayers2 as $ro): ?>
+                                    <option value="<?php echo $ro['id']; ?>"><?php echo htmlspecialchars($ro['username']); ?></option>
+                                <?php endforeach; ?>
                             </select>
                             <button type="submit" class="btn btn-outline-primary">Añadir a la lista</button>
                         </div>
+                        <?php else: ?>
+                            <p class="text-muted small mb-0"><i class="bi bi-check-all"></i> Todos los jugadores del equipo ya están convocados.</p>
+                        <?php endif; ?>
                     </form>
                 <?php endif; ?>
             </div>
@@ -487,20 +526,51 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
             </div>
         <?php endif; ?>
         
-        <?php if (($isAdmin || $isCaptainOfPlayingTeam) && $match['status'] === 'finished'): ?>
-            <div class="card bg-dark border-primary mt-4 mb-5 shadow">
+        <?php
+        // --- Calcular si el capitán todavía puede añadir estadísticas ---
+        $captainCanAddStats = false;
+        if ($isCaptainOfPlayingTeam && $match['status'] === 'finished' && $myTeamId) {
+            $opponentTeamIdForCap = ($myTeamId == $match['team1_id']) ? $match['team2_id'] : $match['team1_id'];
+            $myOfficialScore = ($myTeamId == $match['team1_id']) ? (int)$match['team1_score'] : (int)$match['team2_score'];
+            $oppOfficialScore = ($opponentTeamIdForCap == $match['team1_id']) ? (int)$match['team1_score'] : (int)$match['team2_score'];
+
+            $stmtCapStats = $pdo->prepare("
+                SELECT u.team_id, me.event_type, COUNT(*) as count
+                FROM match_events me
+                JOIN users u ON me.player_id = u.id
+                WHERE me.match_id = ?
+                GROUP BY u.team_id, me.event_type
+            ");
+            $stmtCapStats->execute([$matchId]);
+            $capStats = [];
+            foreach ($stmtCapStats->fetchAll() as $row) {
+                $capStats[$row['team_id']][$row['event_type']] = (int)$row['count'];
+            }
+            $myGoalsCap    = $capStats[$myTeamId]['goal']     ?? 0;
+            $myOwnGoalsCap = $capStats[$myTeamId]['own_goal'] ?? 0;
+            $myAssistsCap  = $capStats[$myTeamId]['assist']   ?? 0;
+            $oppGoalsCap   = $capStats[$opponentTeamIdForCap]['goal']     ?? 0;
+            $oppOwnGoalsCap= $capStats[$opponentTeamIdForCap]['own_goal'] ?? 0;
+
+            $canAddGoal    = ($myGoalsCap + $oppOwnGoalsCap) < $myOfficialScore;
+            $canAddOwn     = ($oppGoalsCap + $myOwnGoalsCap) < $oppOfficialScore;
+            $canAddAssist  = $myAssistsCap < $myGoalsCap;
+
+            $captainCanAddStats = $canAddGoal || $canAddOwn || $canAddAssist;
+        }
+        ?>
+        <?php if ($match['status'] === 'finished' && ($isAdmin || $captainCanAddStats)): ?>
+            <div class="card bg-dark border-primary mt-4 mb-5 shadow" id="stats-card">
                 <div class="card-header bg-primary text-white fw-bold">
                     <i class="bi bi-clipboard-data-fill me-1"></i> Añadir Estadísticas de los Jugadores
                 </div>
                 <div class="card-body">
-                    <?php if (isset($statError)): ?>
-                        <div class="alert alert-danger bg-danger text-white border-0 py-2 mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo htmlspecialchars($statError); ?></div>
-                    <?php endif; ?>
-                    <form method="POST" class="row align-items-end g-3">
-                        <input type="hidden" name="action" value="add_event">
+                    <div id="stat-error-msg" class="alert alert-danger bg-danger text-white border-0 py-2 mb-3 d-none"></div>
+                    <div id="stat-ok-msg" class="alert alert-success bg-success text-white border-0 py-2 mb-3 d-none"></div>
+                    <div class="row align-items-end g-3">
                         <div class="col-md-5">
                             <label class="form-label">Jugador de la alineación</label>
-                            <select name="player_id" class="form-select bg-dark text-light border-secondary" required>
+                            <select id="stat-player" class="form-select bg-dark text-light border-secondary">
                                 <?php
                                 $options = $isAdmin ? array_merge($lineups[$match['team1_id']], $lineups[$match['team2_id']]) : $lineups[$myTeamId];
                                 foreach ($options as $ro) {
@@ -511,16 +581,18 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                         </div>
                         <div class="col-md-5">
                             <label class="form-label">Evento</label>
-                            <select name="event_type" class="form-select bg-dark text-light border-secondary" required>
+                            <select id="stat-event" class="form-select bg-dark text-light border-secondary">
                                 <option value="goal">Marcó un GOL ⚽</option>
                                 <option value="assist">Dio una ASISTENCIA 👟</option>
                                 <option value="own_goal">Marcó GOL EN PROPIA 🔴</option>
                             </select>
                         </div>
                         <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">Guardar Stast</button>
+                            <button id="stat-save-btn" class="btn btn-primary w-100">
+                                <span id="stat-btn-text">Guardar Stats</span>
+                            </button>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         <?php endif; ?>
@@ -533,9 +605,9 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                 </div>
                 <div class="card-body">
                     <p class="text-muted small mb-4">Solo puedes valorar a los jugadores del equipo contrario que hayan participado en este partido.</p>
-                    <div class="row row-cols-1 row-cols-md-2 g-3">
+                    <div class="row row-cols-1 row-cols-md-2 g-3" id="ratings-container">
                         <?php foreach ($opponents as $opp): ?>
-                            <div class="col">
+                            <div class="col" id="vote-col-<?php echo $opp['id']; ?>">
                                 <?php if (isset($myVotes[$opp['id']])): ?>
                                     <div class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-success">
                                         <div class="me-auto text-truncate d-flex align-items-center">
@@ -553,9 +625,7 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                                         </div>
                                     </div>
                                 <?php else: ?>
-                                    <form method="POST" class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-secondary">
-                                        <input type="hidden" name="action" value="rate_player">
-                                        <input type="hidden" name="target_id" value="<?php echo $opp['id']; ?>">
+                                    <div class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-secondary vote-form-wrap">
                                         <div class="me-auto text-truncate d-flex align-items-center">
                                             <?php if (!empty($opp['profile_picture'])): ?>
                                                 <img src="<?php echo htmlspecialchars($opp['profile_picture']); ?>" class="rounded-circle me-2 border border-secondary" style="width: 32px; height: 32px; object-fit: cover;">
@@ -567,10 +637,17 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                                             <strong><?php echo htmlspecialchars($opp['username']); ?></strong>
                                         </div>
                                         <div class="d-flex align-items-center">
-                                            <input type="number" step="0.5" min="1" max="10" name="rating" placeholder="1-10" class="form-control form-control-sm bg-dark text-light border-secondary me-2" style="width: 70px;" required>
-                                            <button type="submit" class="btn btn-sm btn-outline-success">Votar</button>
+                                            <input type="number" step="0.5" min="1" max="10" placeholder="1-10"
+                                                class="form-control form-control-sm bg-dark text-light border-secondary me-2 rating-input"
+                                                style="width: 70px;"
+                                                data-target="<?php echo $opp['id']; ?>">
+                                            <button class="btn btn-sm btn-outline-success vote-btn"
+                                                data-target="<?php echo $opp['id']; ?>"
+                                                data-match="<?php echo $matchId; ?>">
+                                                Votar
+                                            </button>
                                         </div>
-                                    </form>
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
@@ -615,5 +692,127 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
 
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // AJAX para votar sin recargar la página ni subir al inicio
+    document.querySelectorAll('.vote-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-target');
+            const matchId  = this.getAttribute('data-match');
+            const colEl    = document.getElementById('vote-col-' + targetId);
+            const inputEl  = colEl.querySelector('.rating-input');
+            const rating   = parseFloat(inputEl.value);
+
+            if (!rating || rating < 1 || rating > 10) {
+                inputEl.classList.add('is-invalid');
+                inputEl.focus();
+                return;
+            }
+            inputEl.classList.remove('is-invalid');
+
+            // Deshabilitar mientras enviamos
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            const formData = new FormData();
+            formData.append('action', 'rate_player');
+            formData.append('target_id', targetId);
+            formData.append('match_id_ajax', matchId);
+            formData.append('rating', rating);
+            formData.append('ajax', '1');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            }).then(function(res) {
+                return res.json();
+            }).then(function(data) {
+                if (data.ok) {
+                    // Reemplazar la tarjeta con la confirmación visual
+                    colEl.innerHTML = `
+                        <div class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-success">
+                            <div class="me-auto text-truncate d-flex align-items-center">
+                                <strong>${colEl.querySelector('strong').textContent}</strong>
+                            </div>
+                            <div class="d-flex align-items-center text-success fw-bold">
+                                <i class="bi bi-check-circle-fill me-2"></i> Nota: ${rating.toFixed(1)}
+                            </div>
+                        </div>`;
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Votar';
+                    alert(data.error || 'Error al guardar el voto. Inténtalo de nuevo.');
+                }
+            }).catch(function() {
+                btn.disabled = false;
+                btn.textContent = 'Votar';
+                alert('Error de red. Inténtalo de nuevo.');
+            });
+        });
+    });
+
+    // AJAX para guardar estadísticas sin recargar la página
+    const statSaveBtn = document.getElementById('stat-save-btn');
+    if (statSaveBtn) {
+        statSaveBtn.addEventListener('click', function() {
+            const playerSel = document.getElementById('stat-player');
+            const eventSel  = document.getElementById('stat-event');
+            const errMsg    = document.getElementById('stat-error-msg');
+            const okMsg     = document.getElementById('stat-ok-msg');
+            const btnText   = document.getElementById('stat-btn-text');
+
+            errMsg.classList.add('d-none');
+            okMsg.classList.add('d-none');
+
+            statSaveBtn.disabled = true;
+            btnText.textContent  = 'Guardando...';
+
+            const formData = new FormData();
+            formData.append('action',     'add_event');
+            formData.append('player_id',  playerSel.value);
+            formData.append('event_type', eventSel.value);
+            formData.append('ajax',       '1');  // Indica al servidor que devuelva JSON
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                statSaveBtn.disabled = false;
+                btnText.textContent  = 'Guardar Stats';
+
+                if (data.ok) {
+                    // Éxito: mostrar mensaje verde
+                    okMsg.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Estadística guardada correctamente.';
+                    okMsg.classList.remove('d-none');
+                    setTimeout(() => { okMsg.classList.add('d-none'); }, 3000);
+
+                    // Refrescar silenciosamente el historial de eventos
+                    fetch(window.location.href)
+                    .then(r => r.text())
+                    .then(fullHtml => {
+                        const d2 = new DOMParser().parseFromString(fullHtml, 'text/html');
+                        const newHist = d2.querySelector('.list-group.bg-dark.mb-5');
+                        const oldHist = document.querySelector('.list-group.bg-dark.mb-5');
+                        if (newHist && oldHist) oldHist.replaceWith(newHist);
+                        const newCard = d2.getElementById('stats-card');
+                        const oldCard = document.getElementById('stats-card');
+                        if (!newCard && oldCard) oldCard.remove();
+                    });
+                } else {
+                    // Error: mostrar mensaje rojo con el texto del servidor
+                    errMsg.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> ' + (data.error || 'Error desconocido.');
+                    errMsg.classList.remove('d-none');
+                }
+            })
+            .catch(() => {
+                statSaveBtn.disabled = false;
+                btnText.textContent  = 'Guardar Stats';
+                errMsg.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> Error de red. Inténtalo de nuevo.';
+                errMsg.classList.remove('d-none');
+            });
+        });
+    }
+    </script>
 </body>
 </html>
