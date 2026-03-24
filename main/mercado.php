@@ -95,12 +95,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $pid = (int)$_POST['player_id'];
             
             // Validate player
-            $stmtP = $pdo->prepare("SELECT id, username, team_id, is_protected FROM users WHERE id = ? AND role != 'admin'");
+            $stmtP = $pdo->prepare("SELECT id, username, team_id, is_protected, role FROM users WHERE id = ? AND role != 'admin'");
             $stmtP->execute([$pid]);
             $player = $stmtP->fetch();
             
-            if (!$player || $player['is_protected'] || $player['team_id'] == $myTeamId || !$player['team_id']) {
-                $error = "El jugador no existe, está en tu equipo, no tiene equipo o está protegido.";
+            if (!$player || $player['is_protected'] || $player['team_id'] == $myTeamId || !$player['team_id'] || $player['role'] === 'capitan') {
+                $error = "El jugador no existe, está en tu equipo, no tiene equipo, está protegido o es CAPITÁN.";
             } else {
                 $sellerTeamId = $player['team_id'];
                 
@@ -131,8 +131,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             try {
                                 // Deduct from buyer
                                 $pdo->prepare("UPDATE teams SET budget = budget - ? WHERE id = ?")->execute([$calculatedPrice, $myTeamId]);
-                                // Add to seller
-                                $pdo->prepare("UPDATE teams SET budget = budget + ? WHERE id = ?")->execute([$calculatedPrice, $sellerTeamId]);
                                 // Move player
                                 $pdo->prepare("UPDATE users SET team_id = ? WHERE id = ?")->execute([$myTeamId, $pid]);
                                 // Log transfer
@@ -159,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $marketPlayers = [];
 if ($myTeamId) {
     // Other teams players to buy
-    $stmtMkt = $pdo->prepare("SELECT u.id, u.username, u.profile_picture, u.is_protected, t.name as team_name, t.id as seller_team_id FROM users u JOIN teams t ON u.team_id = t.id WHERE u.team_id != ? AND u.role != 'admin' ORDER BY t.name ASC, u.username ASC");
+    $stmtMkt = $pdo->prepare("SELECT u.id, u.username, u.profile_picture, u.is_protected, u.role, t.name as team_name, t.id as seller_team_id FROM users u JOIN teams t ON u.team_id = t.id WHERE u.team_id != ? AND u.role != 'admin' ORDER BY t.name ASC, u.username ASC");
     $stmtMkt->execute([$myTeamId]);
     $marketPlayersRaw = $stmtMkt->fetchAll();
     
@@ -176,7 +174,7 @@ if ($myTeamId) {
 // Fetch my team players for protection
 $myPlayers = [];
 if ($myTeamId) {
-    $stmtMy = $pdo->prepare("SELECT id, username, profile_picture, is_protected FROM users WHERE team_id = ? AND role != 'admin' ORDER BY username ASC");
+    $stmtMy = $pdo->prepare("SELECT id, username, profile_picture, is_protected, role FROM users WHERE team_id = ? AND role != 'admin' ORDER BY username ASC");
     $stmtMy->execute([$myTeamId]);
     $myPlayers = $stmtMy->fetchAll();
 }
@@ -381,7 +379,9 @@ $transfers = $pdo->query("
                                                 <?php echo number_format($mp['price'], 2); ?> <i class="bi bi-coin small"></i>
                                             </td>
                                             <td class="text-center">
-                                                <?php if ($isMarketOpen && $isCaptain): ?>
+                                                <?php if ($mp['role'] === 'capitan'): ?>
+                                                    <span class="badge bg-secondary shadow-sm">CAPITÁN</span>
+                                                <?php elseif ($isMarketOpen && $isCaptain): ?>
                                                     <form method="POST" class="m-0" onsubmit="return confirm('¿Seguro que quieres fichar a <?php echo htmlspecialchars(addslashes($mp['username'])); ?> por <?php echo number_format($mp['price'],2); ?>?');">
                                                         <input type="hidden" name="action" value="buy_player">
                                                         <input type="hidden" name="player_id" value="<?php echo $mp['id']; ?>">

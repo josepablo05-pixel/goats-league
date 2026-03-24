@@ -6,7 +6,7 @@ require_once __DIR__ . '/db.php';
 if (isset($_GET['get_players'])) {
     header('Content-Type: application/json');
     $teamId = (int)$_GET['get_players'];
-    $stmt = $pdo->prepare("SELECT id, username FROM users WHERE team_id = ? ORDER BY username");
+    $stmt = $pdo->prepare("SELECT id, username, role FROM users WHERE team_id = ? ORDER BY username");
     $stmt->execute([$teamId]);
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
     exit;
@@ -82,9 +82,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($receiverTeamId == $myTeamId) {
             $error = "No puedes proponer un trato a tu propio equipo.";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO trades (proposer_team_id, receiver_team_id, offered_player_ids, requested_player_ids, offered_money, requested_money) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->execute([$myTeamId, $receiverTeamId, $offeredPlayers, $requestedPlayers, $offeredMoney, $requestedMoney]);
-            $success = "Propuesta de trato enviada correctamente.";
+            // Check for captains
+            $offeredPlayersArray = !empty($_POST['offered_players']) ? array_map('intval', $_POST['offered_players']) : [];
+            $requestedPlayersArray = !empty($_POST['requested_players']) ? array_map('intval', $_POST['requested_players']) : [];
+            $allTradePlayerIds = array_merge($offeredPlayersArray, $requestedPlayersArray);
+            
+            $hasCaptain = false;
+            if (!empty($allTradePlayerIds)) {
+                $placeholders = implode(',', array_fill(0, count($allTradePlayerIds), '?'));
+                $stmtCap = $pdo->prepare("SELECT COUNT(*) FROM users WHERE id IN ($placeholders) AND role = 'capitan'");
+                $stmtCap->execute($allTradePlayerIds);
+                if ($stmtCap->fetchColumn() > 0) $hasCaptain = true;
+            }
+
+            if ($hasCaptain) {
+                $error = "No puedes incluir CAPITANES en los tratos.";
+            } else {
+                $stmt = $pdo->prepare("INSERT INTO trades (proposer_team_id, receiver_team_id, offered_player_ids, requested_player_ids, offered_money, requested_money) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$myTeamId, $receiverTeamId, $offeredPlayers, $requestedPlayers, $offeredMoney, $requestedMoney]);
+                $success = "Propuesta de trato enviada correctamente.";
+            }
         }
     }
 
@@ -115,6 +132,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $trade = $stmt->fetch();
 
             if ($trade) {
+                // Check if any player in the trade has become a captain since proposal
+                $allIds = [];
+                if (!empty($trade['offered_player_ids'])) $allIds = array_merge($allIds, explode(',', $trade['offered_player_ids']));
+                if (!empty($trade['requested_player_ids'])) $allIds = array_merge($allIds, explode(',', $trade['requested_player_ids']));
+                
+                if (!empty($allIds)) {
+                    $placeholders = implode(',', array_fill(0, count($allIds), '?'));
+                    $stmtCap = $pdo->prepare("SELECT COUNT(*) FROM users WHERE id IN ($placeholders) AND role = 'capitan'");
+                    $stmtCap->execute($allIds);
+                    if ($stmtCap->fetchColumn() > 0) {
+                        $pdo->rollBack();
+                        $error = "El trato ya no es válido porque contiene CAPITANES.";
+                        // Mark as cancelled to avoid further conflict
+                        $pdo->prepare("UPDATE trades SET status = 'cancelled' WHERE id = ?")->execute([$tradeId]);
+                        return; // Exit action
+                    }
+                }
+
                 // 1. Move players
                 if (!empty($trade['offered_player_ids'])) {
                     $offeredIds = explode(',', $trade['offered_player_ids']);
@@ -159,7 +194,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $allTeams = $pdo->query("SELECT id, name FROM teams WHERE id != " . (int)$myTeamId . " ORDER BY name")->fetchAll();
 
 // My players
-$myPlayers = $pdo->prepare("SELECT id, username FROM users WHERE team_id = ? ORDER BY username");
+$myPlayers = $pdo->prepare("SELECT id, username FROM users WHERE team_id = ? AND role != 'capitan' ORDER BY username");
 $myPlayers->execute([$myTeamId]);
 $myPlayers = $myPlayers->fetchAll();
 
@@ -188,8 +223,11 @@ $sentOffers = $stmtSent->fetchAll();
 // Function to get player names from IDs
 function getPlayerNames($ids, $pdo) {
     if (empty($ids)) return 'Ninguno';
-    $stmt = $pdo->prepare("SELECT username FROM users WHERE id IN ($ids)");
-    $stmt->execute();
+    // Use prepared statement for safety
+    $idArray = array_map('intval', explode(',', $ids));
+    $placeholders = implode(',', array_fill(0, count($idArray), '?'));
+    $stmt = $pdo->prepare("SELECT username FROM users WHERE id IN ($placeholders)");
+    $stmt->execute($idArray);
     return implode(', ', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 ?>
@@ -426,17 +464,16 @@ function getPlayerNames($ids, $pdo) {
         }
         list.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Cargando...';
         
-        // En una app real usaríamos fetch() a un endpoint API. 
-        // Aquí podemos incrustar los jugadores en un objeto JS al cargar la página si son pocos,
-        // o usar data.php si existe. Vamos a usar fetch(tratos.php?get_players=teamId)
+        // Solo jugadores que NO sean capitanes
         fetch('tratos.php?get_players=' + teamId)
             .then(r => r.json())
             .then(data => {
-                if (data.length === 0) {
-                    list.innerHTML = 'Este equipo no tiene jugadores.';
+                const filteredData = data.filter(p => p.role !== 'capitan');
+                if (filteredData.length === 0) {
+                    list.innerHTML = 'Este equipo no tiene jugadores transferibles (solo capitanes).';
                 } else {
                     list.innerHTML = '';
-                    data.forEach(p => {
+                    filteredData.forEach(p => {
                         const div = document.createElement('div');
                         div.className = 'form-check small';
                         div.innerHTML = `
