@@ -21,9 +21,46 @@ if (!$team) {
 }
 
 // Obtener los jugadores del equipo
-$stmtPlayers = $pdo->prepare("SELECT username, role, profile_picture, rating FROM users WHERE team_id = ? AND role != 'admin' ORDER BY username ASC");
-$stmtPlayers->execute([$teamId]);
 $players = $stmtPlayers->fetchAll();
+
+// --- CALCULAR VALORACIÓN MEDIA DEL EQUIPO (Media de MVP) ---
+// Usamos una lógica similar a estadisticas.php:
+// Obtenemos los últimos partidos finalizados de este equipo
+$stmtTeamMatches = $pdo->prepare("
+    SELECT id FROM matches 
+    WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished' 
+    ORDER BY match_date DESC 
+    LIMIT 10
+");
+$stmtTeamMatches->execute([$teamId, $teamId]);
+$finishedMatches = $stmtTeamMatches->fetchAll();
+
+$teamOverallAvg = 0;
+if (count($finishedMatches) > 0) {
+    $matchAvgs = [];
+    foreach ($finishedMatches as $fm) {
+        // En cada partido, tomamos los mejores 7 jugadores (solo si tienen valoración)
+        $stmtTop7 = $pdo->prepare("
+            SELECT AVG(rating) as player_avg 
+            FROM match_ratings 
+            WHERE match_id = ? AND target_id IN (SELECT id FROM users WHERE team_id = ?)
+            GROUP BY target_id
+            ORDER BY player_avg DESC
+            LIMIT 7
+        ");
+        $stmtTop7->execute([$fm['id'], $teamId]);
+        $topPlayerRatings = $stmtTop7->fetchAll(PDO::FETCH_COLUMN);
+        
+        if (count($topPlayerRatings) > 0) {
+            $matchAvgs[] = array_sum($topPlayerRatings) / count($topPlayerRatings);
+        }
+    }
+    
+    if (count($matchAvgs) > 0) {
+        $teamOverallAvg = array_sum($matchAvgs) / count($matchAvgs);
+    }
+}
+// -----------------------------------------------------------
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -119,8 +156,11 @@ else: ?>
 endif; ?>
             </div>
             <div class="col-md-9 text-center text-md-start">
-                <h1 class="display-5 fw-bold text-primary mb-1"><?php echo htmlspecialchars($team['name']); ?></h1>
-                <p class="fs-5 text-muted mb-0">Rendimiento: <strong><?php echo htmlspecialchars($team['points']); ?> Puntos</strong></p>
+                <h1 class="display-5 fw-bold text-primary mb-1"><?php echo htmlspecialchars($team['name'] ?? ''); ?></h1>
+                <div class="d-flex flex-wrap justify-content-center justify-content-md-start gap-3">
+                    <p class="fs-5 text-muted mb-0">Rendimiento: <strong><?php echo htmlspecialchars($team['points'] ?? '0'); ?> Puntos</strong></p>
+                    <p class="fs-5 text-muted mb-0">Valoración Media: <strong class="text-warning"><i class="bi bi-star-fill me-1"></i><?php echo $teamOverallAvg > 0 ? number_format($teamOverallAvg, 1) : 'N/A'; ?></strong></p>
+                </div>
             </div>
         </div>
 

@@ -191,7 +191,7 @@ $players = $pdo->query($query)->fetchAll();
                     ?>
                         <tr class="player-row" data-team="<?php echo htmlspecialchars($teamName); ?>">
                             <td>
-                                <div class="d-flex align-items-center text-nowrap" title="<?php echo htmlspecialchars($p['username']); ?>">
+                                <div class="d-flex align-items-center text-nowrap" title="<?php echo htmlspecialchars($p['username'] ?? ''); ?>">
                                     <?php if (!empty($p['profile_picture'])): ?>
                                         <img src="<?php echo htmlspecialchars($p['profile_picture']); ?>" class="rounded-circle me-2 object-fit-cover border border-secondary" style="width: 30px; height: 30px;">
                                     <?php else: ?>
@@ -199,7 +199,7 @@ $players = $pdo->query($query)->fetchAll();
                                             <?php echo strtoupper(substr($p['username'], 0, 1)); ?>
                                         </div>
                                     <?php endif; ?>
-                                    <span class="fw-bold" style="max-width: 90px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle;"><?php echo htmlspecialchars($p['username']); ?></span>
+                                    <span class="fw-bold" style="max-width: 90px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: middle;"><?php echo htmlspecialchars($p['username'] ?? ''); ?></span>
                                 </div>
                             </td>
                             <td class="text-center text-muted small d-none d-md-table-cell"><?php echo htmlspecialchars($teamName); ?></td>

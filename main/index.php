@@ -112,7 +112,7 @@ foreach ($teams as $team):
 ?>
                         <tr>
                             <td class="px-4 fw-bold text-warning"><?php echo $position++; ?>°</td>
-                            <td><a href="team.php?id=<?php echo htmlspecialchars($team['id']); ?>" class="text-white text-decoration-none fw-semibold border-bottom border-primary pb-1"><?php echo htmlspecialchars($team['name']); ?></a></td>
+                            <td><a href="team.php?id=<?php echo htmlspecialchars($team['id'] ?? ''); ?>" class="text-white text-decoration-none fw-semibold border-bottom border-primary pb-1"><?php echo htmlspecialchars($team['name'] ?? ''); ?></a></td>
                             <td class="text-center text-muted d-none d-sm-table-cell"><?php echo $team['pj']; ?></td>
                             <td class="text-center fw-bold text-success"><?php echo $team['v']; ?></td>
                             <td class="text-center fw-bold text-warning"><?php echo $team['e']; ?></td>
@@ -123,7 +123,7 @@ foreach ($teams as $team):
                                 <?php echo ($team['dg'] >= 0 ? '+' : '') . $team['dg']; ?>
                             </td>
                             <td class="text-center">
-                                <span class="badge bg-primary fs-6"><?php echo $team['points']; ?></span>
+                                <span class="badge bg-primary fs-6"><?php echo htmlspecialchars($team['points'] ?? '0'); ?></span>
                             </td>
                         </tr>
                     <?php

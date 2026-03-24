@@ -203,14 +203,14 @@ $topContributors = $pdo->query("
                         <div class="card-body mt-3">
                             <div class="mb-3 d-flex justify-content-center">
                                 <?php if (!empty($team['logo'])): ?>
-                                    <img src="<?php echo htmlspecialchars($team['logo']); ?>" alt="Logo" class="rounded-circle shadow" style="width: 100px; height: 100px; object-fit: cover; border: 4px solid #0d6efd;">
+                                    <img src="<?php echo htmlspecialchars($team['logo'] ?? ''); ?>" alt="Logo" class="rounded-circle shadow" style="width: 100px; height: 100px; object-fit: cover; border: 4px solid #0d6efd;">
                                 <?php else: ?>
                                     <div class="rounded-circle bg-secondary d-flex justify-content-center align-items-center shadow" style="width: 100px; height: 100px; font-size: 40px; color: white; border: 4px solid #6c757d;">
                                         <?php echo strtoupper(substr($team['name'], 0, 1)); ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
-                            <h5 class="fw-bold mb-1 text-truncate"><?php echo htmlspecialchars($team['name']); ?></h5>
+                            <h5 class="fw-bold mb-1 text-truncate"><?php echo htmlspecialchars($team['name'] ?? ''); ?></h5>
                             
                             <div class="mt-3">
                                 <span class="badge <?php echo $rating > 0 ? 'bg-success' : 'bg-secondary'; ?> fs-5 py-2 px-3 rounded-pill shadow-sm">
