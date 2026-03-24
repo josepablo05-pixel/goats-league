@@ -21,14 +21,26 @@ if ($myTeamId) {
     $stmtPJ->execute([$myTeamId, $myTeamId]);
     $matchesPlayed = (int)$stmtPJ->fetchColumn();
 
-    // 2. Obtener PUNTUACIÓN (Puntos en clasificación)
-    $stmtPoints = $pdo->prepare("SELECT points FROM teams WHERE id = ?");
-    $stmtPoints->execute([$myTeamId]);
-    $teamPoints = (float)$stmtPoints->fetchColumn();
+    // 2. Obtener Media del Equipo (Usamos la misma lógica que team.php)
+    $stmtTeamMatches = $pdo->prepare("SELECT id FROM matches WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished' ORDER BY match_date DESC LIMIT 10");
+    $stmtTeamMatches->execute([$myTeamId, $myTeamId]);
+    $finishedMatches = $stmtTeamMatches->fetchAll();
+    
+    $teamRating = 0;
+    if (count($finishedMatches) > 0) {
+        $matchAvgs = [];
+        foreach ($finishedMatches as $fm) {
+            $stmtTop7 = $pdo->prepare("SELECT AVG(rating) FROM match_ratings WHERE match_id = ? AND target_id IN (SELECT id FROM users WHERE team_id = ?) GROUP BY target_id ORDER BY AVG(rating) DESC LIMIT 7");
+            $stmtTop7->execute([$fm['id'], $myTeamId]);
+            $topRatings = $stmtTop7->fetchAll(PDO::FETCH_COLUMN);
+            if (count($topRatings) > 0) $matchAvgs[] = array_sum($topRatings) / count($topRatings);
+        }
+        if (count($matchAvgs) > 0) $teamRating = array_sum($matchAvgs) / count($matchAvgs);
+    }
 
     // 3. Sobrescribir el presupuesto en el objeto $me para que se use en toda la página
     $dbBudgetAdjustment = (float)($me['budget'] ?? 0);
-    $me['budget'] = $teamPoints + (1.0 * $matchesPlayed) + $dbBudgetAdjustment;
+    $me['budget'] = $teamRating + (1.0 * $matchesPlayed) + $dbBudgetAdjustment;
 }
 // -------------------------------------
 
