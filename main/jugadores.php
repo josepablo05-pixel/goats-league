@@ -47,6 +47,7 @@ $query = "
         
     FROM users u
     LEFT JOIN teams t ON u.team_id = t.id
+    WHERE u.username != 'admin'
     ORDER BY avg_rating DESC
 ";
 
@@ -143,7 +144,7 @@ $players = $pdo->query($query)->fetchAll();
     
     <div class="container mt-5 mb-5 px-3">
         <header class="text-center mb-5">
-            <h1 class="display-4 fw-bold">Mercado de Jugadores</h1>
+            <h1 class="display-4 fw-bold">Jugadores</h1>
             <p class="text-muted">Directorio completo con las estadísticas individuales de cada jugador de la liga.</p>
         </header>
 
@@ -153,7 +154,6 @@ $players = $pdo->query($query)->fetchAll();
                 <label class="form-label text-muted small fw-bold">Filtrar por Equipo:</label>
                 <select id="teamFilter" class="form-select bg-dark text-white border-secondary">
                     <option value="all">Todos los equipos</option>
-                    <option value="Sin equipo">Jugadores Libres (Sin Equipo)</option>
                     <?php foreach ($teams as $t): ?>
                         <option value="<?php echo htmlspecialchars($t['name']); ?>"><?php echo htmlspecialchars($t['name']); ?></option>
                     <?php endforeach; ?>
