@@ -21,6 +21,8 @@ if (!$team) {
 }
 
 // Obtener los jugadores del equipo
+$stmtPlayers = $pdo->prepare("SELECT username, role, profile_picture, rating FROM users WHERE team_id = ? AND role != 'admin' ORDER BY username ASC");
+$stmtPlayers->execute([$teamId]);
 $players = $stmtPlayers->fetchAll();
 
 // --- CALCULAR VALORACIÓN MEDIA DEL EQUIPO (Media de MVP) ---
