@@ -10,8 +10,8 @@ $teamRatings = [];
 foreach ($teams as $team) {
     $teamId = $team['id'];
     
-    // Obtener todos los partidos finalizados donde participó este equipo
-    $stmtMatches = $pdo->prepare("SELECT id FROM matches WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished'");
+    // Obtener todos los partidos finalizados y cerrados en los que participó este equipo
+    $stmtMatches = $pdo->prepare("SELECT id FROM matches WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished' AND voting_closed = 1");
     $stmtMatches->execute([$teamId, $teamId]);
     $matches = $stmtMatches->fetchAll();
     
@@ -86,9 +86,10 @@ $topAssists = $pdo->query("
 $topRatedPlayers = $pdo->query("
     SELECT u.username, u.profile_picture, t.name as team_name, AVG(mr.rating) as avg_rating
     FROM match_ratings mr
+    JOIN matches m ON mr.match_id = m.id
     JOIN users u ON mr.target_id = u.id
     LEFT JOIN teams t ON u.team_id = t.id
-    WHERE u.role != 'admin'
+    WHERE u.role != 'admin' AND m.voting_closed = 1
     GROUP BY u.id
     ORDER BY avg_rating DESC, u.username ASC
     LIMIT 10

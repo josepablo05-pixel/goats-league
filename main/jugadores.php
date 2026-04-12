@@ -25,7 +25,12 @@ $query = "
         (SELECT COUNT(*) FROM match_events me WHERE me.player_id = u.id AND me.event_type = 'own_goal') AS own_goals,
         
         -- Media de Estrellas MVP
-        (SELECT AVG(rating) FROM match_ratings mr WHERE mr.target_id = u.id) AS avg_rating,
+        (
+            SELECT AVG(mr.rating) 
+            FROM match_ratings mr 
+            JOIN matches m ON mr.match_id = m.id 
+            WHERE mr.target_id = u.id AND m.voting_closed = 1
+        ) AS avg_rating,
         
         -- Partidos Jugados (convocado en partidos finalizados)
         (
