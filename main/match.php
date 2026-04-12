@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     // Acción: Capitán o Admin añade un jugador a la alineación
-    if ($action === 'add_lineup' && ($isAdmin || $isCaptainOfPlayingTeam) && $match['status'] === 'pending') {
+    if ($action === 'add_lineup' && ($isAdmin || ($isCaptainOfPlayingTeam && $match['status'] === 'pending'))) {
         $playerId = (int)$_POST['player_id'];
         $teamIdForLineup = $isAdmin ? (int)$_POST['team_id'] : $myTeamId;
         try {
@@ -62,12 +62,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Acción: Capitán o Admin elimina a un jugador de la alineación
-    if ($action === 'remove_lineup' && ($isAdmin || $isCaptainOfPlayingTeam) && $match['status'] === 'pending') {
+    if ($action === 'remove_lineup' && ($isAdmin || ($isCaptainOfPlayingTeam && $match['status'] === 'pending'))) {
         $playerId = (int)$_POST['player_id'];
         $teamIdForLineup = $isAdmin ? (int)$_POST['team_id'] : $myTeamId;
         
         $stmt = $pdo->prepare("DELETE FROM match_lineups WHERE match_id = ? AND team_id = ? AND player_id = ?");
         $stmt->execute([$matchId, $teamIdForLineup, $playerId]);
+
+        // Si se elimina un jugador, borrar las valoraciones que haya recibido en este partido
+        $stmtDelVotes = $pdo->prepare("DELETE FROM match_ratings WHERE match_id = ? AND target_id = ?");
+        $stmtDelVotes->execute([$matchId, $playerId]);
+        
+        // Actualizar media global del jugador
+        $stmtAvg = $pdo->prepare("UPDATE users SET rating = COALESCE((SELECT AVG(rating) FROM match_ratings WHERE target_id = ?), 0) WHERE id = ?");
+        $stmtAvg->execute([$playerId, $playerId]);
     }
     
     // Acción: Capitán finaliza el partido y añade el resultado
@@ -435,7 +443,7 @@ foreach ($stmtStats->fetchAll() as $row) {
                                         </span>
                                     <?php endif; ?>
                                 </div>
-                                <?php if ((($isAdmin && $match['status'] === 'pending') || ($isCaptainOfPlayingTeam && $myTeamId == $match['team1_id'] && $match['status'] === 'pending'))): ?>
+                                <?php if ($isAdmin || ($isCaptainOfPlayingTeam && $myTeamId == $match['team1_id'] && $match['status'] === 'pending')): ?>
                                     <form method="POST" style="margin: 0;">
                                         <input type="hidden" name="action" value="remove_lineup">
                                         <input type="hidden" name="team_id" value="<?php echo $match['team1_id']; ?>">
@@ -450,7 +458,7 @@ foreach ($stmtStats->fetchAll() as $row) {
                     <?php endif; ?>
                 </ul>
                 
-                <?php if ((($isAdmin && $match['status'] === 'pending') || ($isCaptainOfPlayingTeam && $myTeamId == $match['team1_id'] && $match['status'] === 'pending'))): ?>
+                <?php if ($isAdmin || ($isCaptainOfPlayingTeam && $myTeamId == $match['team1_id'] && $match['status'] === 'pending')): ?>
                     <!-- Formulario para añadir jugadores -->
                     <form method="POST" class="mt-3 p-3 bg-secondary bg-opacity-10 border border-secondary rounded">
                         <input type="hidden" name="action" value="add_lineup">
@@ -509,7 +517,7 @@ foreach ($stmtStats->fetchAll() as $row) {
                                         </span>
                                     <?php endif; ?>
                                 </div>
-                                <?php if ((($isAdmin && $match['status'] === 'pending') || ($isCaptainOfPlayingTeam && $myTeamId == $match['team2_id'] && $match['status'] === 'pending'))): ?>
+                                <?php if ($isAdmin || ($isCaptainOfPlayingTeam && $myTeamId == $match['team2_id'] && $match['status'] === 'pending')): ?>
                                     <form method="POST" style="margin: 0;">
                                         <input type="hidden" name="action" value="remove_lineup">
                                         <input type="hidden" name="team_id" value="<?php echo $match['team2_id']; ?>">
@@ -524,7 +532,7 @@ foreach ($stmtStats->fetchAll() as $row) {
                     <?php endif; ?>
                 </ul>
 
-                <?php if ((($isAdmin && $match['status'] === 'pending') || ($isCaptainOfPlayingTeam && $myTeamId == $match['team2_id'] && $match['status'] === 'pending'))): ?>
+                <?php if ($isAdmin || ($isCaptainOfPlayingTeam && $myTeamId == $match['team2_id'] && $match['status'] === 'pending')): ?>
                     <!-- Formulario para añadir jugadores -->
                     <form method="POST" class="mt-3 p-3 bg-secondary bg-opacity-10 border border-secondary rounded">
                         <input type="hidden" name="action" value="add_lineup">
