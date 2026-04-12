@@ -23,7 +23,7 @@ if ($myTeamId) {
     $matchesPlayed = (int)$stmtPJ->fetchColumn();
 
     // 2. Obtener Media del Equipo (Usamos la misma lógica que team.php)
-    $stmtTeamMatches = $pdo->prepare("SELECT id FROM matches WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished' ORDER BY match_date DESC LIMIT 10");
+    $stmtTeamMatches = $pdo->prepare("SELECT id FROM matches WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished' AND voting_closed = 1 ORDER BY match_date DESC LIMIT 10");
     $stmtTeamMatches->execute([$myTeamId, $myTeamId]);
     $finishedMatches = $stmtTeamMatches->fetchAll();
     

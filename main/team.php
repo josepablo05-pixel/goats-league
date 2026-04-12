@@ -31,7 +31,7 @@ $players = $stmtPlayers->fetchAll();
 // Obtenemos los últimos partidos finalizados de este equipo
 $stmtTeamMatches = $pdo->prepare("
     SELECT id FROM matches 
-    WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished' 
+    WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished' AND voting_closed = 1
     ORDER BY match_date DESC 
     LIMIT 10
 ");
