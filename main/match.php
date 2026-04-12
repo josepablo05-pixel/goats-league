@@ -289,6 +289,21 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
     ];
 }
 
+// Goles y asistencias por jugador en ESTE partido
+$playerMatchStats = [];
+$stmtStats = $pdo->prepare("SELECT player_id, event_type, COUNT(*) as count FROM match_events WHERE match_id = ? GROUP BY player_id, event_type");
+$stmtStats->execute([$matchId]);
+foreach ($stmtStats->fetchAll() as $row) {
+    if (!isset($playerMatchStats[$row['player_id']])) {
+        $playerMatchStats[$row['player_id']] = ['goal' => 0, 'assist' => 0];
+    }
+    if ($row['event_type'] === 'goal') {
+        $playerMatchStats[$row['player_id']]['goal'] = (int)$row['count'];
+    } elseif ($row['event_type'] === 'assist') {
+        $playerMatchStats[$row['player_id']]['assist'] = (int)$row['count'];
+    }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -405,7 +420,15 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                                             <?php echo strtoupper(substr($p['username'], 0, 1)); ?>
                                         </div>
                                     <?php endif; ?>
-                                    <span class="fw-semibold"><?php echo htmlspecialchars($p['username'] ?? ''); ?></span>
+                                    <span class="fw-semibold">
+                                        <?php echo htmlspecialchars($p['username'] ?? ''); ?>
+                                        <?php 
+                                        $g = $playerMatchStats[$p['id']]['goal'] ?? 0;
+                                        $a = $playerMatchStats[$p['id']]['assist'] ?? 0;
+                                        if ($g > 0) echo '<span class="ms-1" style="font-size:0.9em;">' . str_repeat('⚽', $g) . '</span>';
+                                        if ($a > 0) echo '<span class="ms-1" style="font-size:0.9em;">' . str_repeat('👟', $a) . '</span>';
+                                        ?>
+                                    </span>
                                     <?php if (isset($matchPlayerAvgs[$p['id']])): ?>
                                         <span class="badge bg-success bg-opacity-75 ms-2 border border-success" title="<?php echo $matchPlayerAvgs[$p['id']]['votes']; ?> votos">
                                             <i class="bi bi-star-fill text-warning me-1"></i><?php echo number_format($matchPlayerAvgs[$p['id']]['avg'], 1); ?>
@@ -471,7 +494,15 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                                             <?php echo strtoupper(substr($p['username'], 0, 1)); ?>
                                         </div>
                                     <?php endif; ?>
-                                    <span class="fw-semibold"><?php echo htmlspecialchars($p['username']); ?></span>
+                                    <span class="fw-semibold">
+                                        <?php echo htmlspecialchars($p['username']); ?>
+                                        <?php 
+                                        $g = $playerMatchStats[$p['id']]['goal'] ?? 0;
+                                        $a = $playerMatchStats[$p['id']]['assist'] ?? 0;
+                                        if ($g > 0) echo '<span class="ms-1" style="font-size:0.9em;">' . str_repeat('⚽', $g) . '</span>';
+                                        if ($a > 0) echo '<span class="ms-1" style="font-size:0.9em;">' . str_repeat('👟', $a) . '</span>';
+                                        ?>
+                                    </span>
                                     <?php if (isset($matchPlayerAvgs[$p['id']])): ?>
                                         <span class="badge bg-success bg-opacity-75 ms-2 border border-success" title="<?php echo $matchPlayerAvgs[$p['id']]['votes']; ?> votos">
                                             <i class="bi bi-star-fill text-warning me-1"></i><?php echo number_format($matchPlayerAvgs[$p['id']]['avg'], 1); ?>
@@ -638,8 +669,15 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                         <div class="row row-cols-1 row-cols-md-2 g-3" id="ratings-container">
                             <?php foreach ($opponents as $opp): ?>
                                 <div class="col" id="vote-col-<?php echo $opp['id']; ?>">
+                                    <?php 
+                                    $g = $playerMatchStats[$opp['id']]['goal'] ?? 0;
+                                    $a = $playerMatchStats[$opp['id']]['assist'] ?? 0;
+                                    $iconsHtml = '';
+                                    if ($g > 0) $iconsHtml .= '<span class="ms-1" style="font-size:0.9em;">' . str_repeat('⚽', $g) . '</span>';
+                                    if ($a > 0) $iconsHtml .= '<span class="ms-1" style="font-size:0.9em;">' . str_repeat('👟', $a) . '</span>';
+                                    ?>
                                     <?php if (isset($myVotes[$opp['id']])): ?>
-                                        <div class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-success">
+                                        <div class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-success" id="vote-view-<?php echo $opp['id']; ?>">
                                             <div class="me-auto text-truncate d-flex align-items-center">
                                                 <?php if (!empty($opp['profile_picture'])): ?>
                                                     <img src="<?php echo htmlspecialchars($opp['profile_picture']); ?>" class="rounded-circle me-2 border border-secondary" style="width: 32px; height: 32px; object-fit: cover;">
@@ -648,14 +686,32 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                                                         <?php echo strtoupper(substr($opp['username'], 0, 1)); ?>
                                                     </div>
                                                 <?php endif; ?>
-                                                <strong><?php echo htmlspecialchars($opp['username']); ?></strong>
+                                                <strong><?php echo htmlspecialchars($opp['username']); ?><?php echo $iconsHtml; ?></strong>
                                             </div>
-                                            <div class="d-flex align-items-center text-success fw-bold">
-                                                <i class="bi bi-check-circle-fill me-2"></i> Nota: <?php echo number_format($myVotes[$opp['id']], 1); ?>
+                                            <div class="d-flex align-items-center text-success fw-bold text-nowrap">
+                                                <i class="bi bi-check-circle-fill me-1"></i> <span class="d-none d-sm-inline">Nota:</span> <span id="nota-text-<?php echo $opp['id']; ?>"><?php echo number_format($myVotes[$opp['id']], 1); ?></span>
+                                                <button class="btn btn-sm btn-link text-warning p-0 ms-2 edit-vote-btn" title="Editar voto" data-target="<?php echo $opp['id']; ?>"><i class="bi bi-pencil-fill"></i></button>
+                                            </div>
+                                        </div>
+                                        <div class="d-none align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-warning form-container" id="vote-form-<?php echo $opp['id']; ?>">
+                                            <div class="me-auto text-truncate d-flex align-items-center">
+                                                <strong><?php echo htmlspecialchars($opp['username']); ?><?php echo $iconsHtml; ?></strong>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <input type="number" step="0.5" min="1" max="10" placeholder="1-10"
+                                                    class="form-control form-control-sm bg-dark text-light border-secondary me-2 rating-input"
+                                                    style="width: 70px;"
+                                                    data-target="<?php echo $opp['id']; ?>" value="<?php echo number_format($myVotes[$opp['id']], 1); ?>">
+                                                <button class="btn btn-sm btn-warning vote-btn text-dark fw-bold"
+                                                    data-target="<?php echo $opp['id']; ?>"
+                                                    data-match="<?php echo $matchId; ?>">
+                                                    <i class="bi bi-save"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary ms-1 cancel-edit-btn" data-target="<?php echo $opp['id']; ?>"><i class="bi bi-x"></i></button>
                                             </div>
                                         </div>
                                     <?php else: ?>
-                                        <div class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-secondary vote-form-wrap">
+                                        <div class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-secondary vote-form-wrap" id="vote-form-<?php echo $opp['id']; ?>">
                                             <div class="me-auto text-truncate d-flex align-items-center">
                                                 <?php if (!empty($opp['profile_picture'])): ?>
                                                     <img src="<?php echo htmlspecialchars($opp['profile_picture']); ?>" class="rounded-circle me-2 border border-secondary" style="width: 32px; height: 32px; object-fit: cover;">
@@ -664,7 +720,7 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                                                         <?php echo strtoupper(substr($opp['username'], 0, 1)); ?>
                                                     </div>
                                                 <?php endif; ?>
-                                                <strong><?php echo htmlspecialchars($opp['username']); ?></strong>
+                                                <strong><?php echo htmlspecialchars($opp['username']); ?><?php echo $iconsHtml; ?></strong>
                                             </div>
                                             <div class="d-flex align-items-center">
                                                 <input type="number" step="0.5" min="1" max="10" placeholder="1-10"
@@ -676,6 +732,22 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                                                     data-match="<?php echo $matchId; ?>">
                                                     Votar
                                                 </button>
+                                            </div>
+                                        </div>
+                                        <div class="d-none align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-success" id="vote-view-<?php echo $opp['id']; ?>">
+                                            <div class="me-auto text-truncate d-flex align-items-center">
+                                                <?php if (!empty($opp['profile_picture'])): ?>
+                                                    <img src="<?php echo htmlspecialchars($opp['profile_picture']); ?>" class="rounded-circle me-2 border border-secondary" style="width: 32px; height: 32px; object-fit: cover;">
+                                                <?php else: ?>
+                                                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2 fw-bold" style="width: 32px; height: 32px; font-size: 12px; border: 1px solid #6c757d;">
+                                                        <?php echo strtoupper(substr($opp['username'], 0, 1)); ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <strong><?php echo htmlspecialchars($opp['username']); ?><?php echo $iconsHtml; ?></strong>
+                                            </div>
+                                            <div class="d-flex align-items-center text-success fw-bold text-nowrap">
+                                                <i class="bi bi-check-circle-fill me-1"></i> <span class="d-none d-sm-inline">Nota:</span> <span id="nota-text-<?php echo $opp['id']; ?>"></span>
+                                                <button class="btn btn-sm btn-link text-warning p-0 ms-2 edit-vote-btn" title="Editar voto" data-target="<?php echo $opp['id']; ?>"><i class="bi bi-pencil-fill"></i></button>
                                             </div>
                                         </div>
                                     <?php endif; ?>
@@ -729,8 +801,9 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
         btn.addEventListener('click', function() {
             const targetId = this.getAttribute('data-target');
             const matchId  = this.getAttribute('data-match');
-            const colEl    = document.getElementById('vote-col-' + targetId);
-            const inputEl  = colEl.querySelector('.rating-input');
+            const formWrap = document.getElementById('vote-form-' + targetId);
+            const viewWrap = document.getElementById('vote-view-' + targetId);
+            const inputEl  = formWrap.querySelector('.rating-input');
             const rating   = parseFloat(inputEl.value);
 
             if (!rating || rating < 1 || rating > 10) {
@@ -742,7 +815,6 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
 
             // Deshabilitar mientras enviamos
             btn.disabled = true;
-            btn.textContent = '...';
 
             const formData = new FormData();
             formData.append('action', 'rate_player');
@@ -758,26 +830,49 @@ foreach ($stmtMatchAvgs->fetchAll() as $row) {
                 return res.json();
             }).then(function(data) {
                 if (data.ok) {
-                    // Reemplazar la tarjeta con la confirmación visual
-                    colEl.innerHTML = `
-                        <div class="d-flex align-items-center bg-secondary bg-opacity-10 p-2 rounded border border-success">
-                            <div class="me-auto text-truncate d-flex align-items-center">
-                                <strong>${colEl.querySelector('strong').textContent}</strong>
-                            </div>
-                            <div class="d-flex align-items-center text-success fw-bold">
-                                <i class="bi bi-check-circle-fill me-2"></i> Nota: ${rating.toFixed(1)}
-                            </div>
-                        </div>`;
+                    // Update value and toggle views
+                    viewWrap.querySelector('#nota-text-' + targetId).textContent = rating.toFixed(1);
+                    formWrap.classList.add('d-none');
+                    formWrap.classList.remove('d-flex');
+                    viewWrap.classList.remove('d-none');
+                    viewWrap.classList.add('d-flex');
+                    btn.disabled = false;
                 } else {
                     btn.disabled = false;
-                    btn.textContent = 'Votar';
                     alert(data.error || 'Error al guardar el voto. Inténtalo de nuevo.');
                 }
             }).catch(function() {
                 btn.disabled = false;
-                btn.textContent = 'Votar';
                 alert('Error de red. Inténtalo de nuevo.');
             });
+        });
+    });
+
+    // Toggle edit vote form
+    document.querySelectorAll('.edit-vote-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-target');
+            const formWrap = document.getElementById('vote-form-' + targetId);
+            const viewWrap = document.getElementById('vote-view-' + targetId);
+            
+            viewWrap.classList.add('d-none');
+            viewWrap.classList.remove('d-flex');
+            formWrap.classList.remove('d-none');
+            formWrap.classList.add('d-flex');
+        });
+    });
+
+    // Cancel edit vote
+    document.querySelectorAll('.cancel-edit-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const targetId = this.getAttribute('data-target');
+            const formWrap = document.getElementById('vote-form-' + targetId);
+            const viewWrap = document.getElementById('vote-view-' + targetId);
+            
+            formWrap.classList.add('d-none');
+            formWrap.classList.remove('d-flex');
+            viewWrap.classList.remove('d-none');
+            viewWrap.classList.add('d-flex');
         });
     });
 
