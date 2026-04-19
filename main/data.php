@@ -52,9 +52,63 @@ foreach ($rawTeams as $t) {
     ];
 }
 
-// Sort by points DESC, then goal diff DESC
-usort($teams, function($a, $b) {
-    if ($b['points'] !== $a['points']) return $b['points'] - $a['points'];
-    return $b['dg'] - $a['dg'];
-});
+// Prepare all finished matches for H2H calculations
+$allMatchesRaw = $pdo->query("SELECT team1_id, team2_id, team1_score, team2_score FROM matches WHERE status='finished'")->fetchAll();
+
+// Group teams by points
+$groups = [];
+foreach ($teams as $t) {
+    $groups[$t['points']][] = $t;
+}
+
+// Sort points descending to process buckets
+krsort($groups);
+
+$sortedTeams = [];
+foreach ($groups as $pts => $group) {
+    if (count($group) > 1) {
+        $groupIds = array_column($group, 'id');
+        $miniStats = [];
+        foreach ($groupIds as $id) {
+            $miniStats[$id] = ['pts' => 0, 'dg' => 0];
+        }
+
+        foreach ($allMatchesRaw as $m) {
+            if (in_array($m['team1_id'], $groupIds) && in_array($m['team2_id'], $groupIds)) {
+                if ($m['team1_score'] > $m['team2_score']) {
+                    $miniStats[$m['team1_id']]['pts'] += 3;
+                } elseif ($m['team1_score'] < $m['team2_score']) {
+                    $miniStats[$m['team2_id']]['pts'] += 3;
+                } else {
+                    $miniStats[$m['team1_id']]['pts'] += 1;
+                    $miniStats[$m['team2_id']]['pts'] += 1;
+                }
+                $miniStats[$m['team1_id']]['dg'] += ($m['team1_score'] - $m['team2_score']);
+                $miniStats[$m['team2_id']]['dg'] += ($m['team2_score'] - $m['team1_score']);
+            }
+        }
+
+        usort($group, function($a, $b) use ($miniStats) {
+            // 1. Mini-league points
+            $ptsDiff = $miniStats[$b['id']]['pts'] - $miniStats[$a['id']]['pts'];
+            if ($ptsDiff !== 0) return $ptsDiff;
+            
+            // 2. Mini-league goal difference
+            $dgDiff = $miniStats[$b['id']]['dg'] - $miniStats[$a['id']]['dg'];
+            if ($dgDiff !== 0) return $dgDiff;
+            
+            // 3. General Goal Difference
+            if ($b['dg'] !== $a['dg']) return $b['dg'] - $a['dg'];
+            
+            // 4. General Goals For
+            return $b['gf'] - $a['gf'];
+        });
+    }
+    
+    foreach ($group as $t) {
+        $sortedTeams[] = $t;
+    }
+}
+
+$teams = $sortedTeams;
 ?>
