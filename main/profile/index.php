@@ -34,6 +34,34 @@ $matchesPlayed = (int)$concededData['matches_played'];
 $goalsConceded = (int)$concededData['total_goals_conceded'];
 $concededPerMatch = $matchesPlayed > 0 ? round($goalsConceded / $matchesPlayed, 2) : 0;
 
+// Obtener MVPs de la temporada
+$stmtMVP = $pdo->prepare("
+    SELECT COUNT(*) as mvps FROM (
+        SELECT p.match_id
+        FROM (
+            SELECT mr.match_id, mr.target_id, AVG(mr.rating) as avg_rating
+            FROM match_ratings mr
+            JOIN matches m ON mr.match_id = m.id
+            WHERE m.voting_closed = 1
+            GROUP BY mr.match_id, mr.target_id
+        ) p
+        JOIN (
+            SELECT match_id, MAX(avg_rating) as max_rating
+            FROM (
+                SELECT mr.match_id, mr.target_id, AVG(mr.rating) as avg_rating
+                FROM match_ratings mr
+                JOIN matches m ON mr.match_id = m.id
+                WHERE m.voting_closed = 1
+                GROUP BY mr.match_id, mr.target_id
+            ) sub
+            GROUP BY match_id
+        ) m_max ON p.match_id = m_max.match_id AND ABS(p.avg_rating - m_max.max_rating) < 0.001
+        WHERE p.target_id = ?
+    ) as user_mvps
+");
+$stmtMVP->execute([$userId]);
+$myMVPs = (int)$stmtMVP->fetchColumn();
+
 // Obtener partidos jugados
 $stmtPlayed = $pdo->prepare("
     SELECT m.*, t1.name as team1_name, t2.name as team2_name
@@ -186,6 +214,14 @@ endif; ?>
                             <div class="card-body p-2 d-flex justify-content-between align-items-center text-danger">
                                 <span><i class="bi bi-x-circle-fill"></i> En propia</span>
                                 <strong class="fs-5"><?php echo $myStats['own_goal']; ?></strong>
+                            </div>
+                        </div>
+                        
+                        <!-- MVP -->
+                        <div class="card bg-dark border-warning mt-2 mb-2">
+                            <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-star-fill text-warning"></i> MVPs de Partido</span>
+                                <strong class="fs-5 text-warning"><?php echo $myMVPs; ?></strong>
                             </div>
                         </div>
                         
