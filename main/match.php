@@ -359,6 +359,11 @@ if ($match['voting_closed']) {
     }
 }
 
+$maxMatchAvg = -1;
+if (!empty($matchPlayerAvgs)) {
+    $maxMatchAvg = max(array_column($matchPlayerAvgs, 'avg'));
+}
+
 // Goles y asistencias por jugador en ESTE partido
 $playerMatchStats = [];
 $stmtStats = $pdo->prepare("SELECT player_id, event_type, COUNT(*) as count FROM match_events WHERE match_id = ? GROUP BY player_id, event_type");
@@ -503,6 +508,9 @@ foreach ($stmtStats->fetchAll() as $row) {
                                         <span class="badge bg-success bg-opacity-75 ms-2 border border-success" title="<?php echo $matchPlayerAvgs[$p['id']]['votes']; ?> votos">
                                             <i class="bi bi-star-fill text-warning me-1"></i><?php echo number_format($matchPlayerAvgs[$p['id']]['avg'], 1); ?>
                                         </span>
+                                        <?php if (abs($matchPlayerAvgs[$p['id']]['avg'] - $maxMatchAvg) < 0.001 && $maxMatchAvg > 0): ?>
+                                            <span class="badge bg-warning text-dark ms-1"><i class="bi bi-trophy-fill"></i> MVP</span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
                                 <?php if ($isAdmin || ($isCaptainOfPlayingTeam && $myTeamId == $match['team1_id'] && $match['status'] === 'pending')): ?>
@@ -577,6 +585,9 @@ foreach ($stmtStats->fetchAll() as $row) {
                                         <span class="badge bg-success bg-opacity-75 ms-2 border border-success" title="<?php echo $matchPlayerAvgs[$p['id']]['votes']; ?> votos">
                                             <i class="bi bi-star-fill text-warning me-1"></i><?php echo number_format($matchPlayerAvgs[$p['id']]['avg'], 1); ?>
                                         </span>
+                                        <?php if (abs($matchPlayerAvgs[$p['id']]['avg'] - $maxMatchAvg) < 0.001 && $maxMatchAvg > 0): ?>
+                                            <span class="badge bg-warning text-dark ms-1"><i class="bi bi-trophy-fill"></i> MVP</span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
                                 <?php if ($isAdmin || ($isCaptainOfPlayingTeam && $myTeamId == $match['team2_id'] && $match['status'] === 'pending')): ?>
