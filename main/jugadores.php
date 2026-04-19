@@ -186,7 +186,7 @@ $players = $pdo->query($query)->fetchAll();
                     <tr>
                         <th scope="col" class="sortable text-nowrap" onclick="sortTable(0, 'string')">Jugador <i class="bi bi-arrow-down-up small ms-1"></i></th>
                         <th scope="col" class="sortable text-center d-none d-md-table-cell text-nowrap" onclick="sortTable(1, 'string')">Equipo <i class="bi bi-arrow-down-up small ms-1"></i></th>
-                        <th scope="col" class="sortable text-center d-none d-md-table-cell" onclick="sortTable(2, 'number')">PJ</th>
+                        <th scope="col" class="sortable text-center" onclick="sortTable(2, 'number')"><span class="d-none d-md-inline">PJ</span><span class="d-inline d-md-none" style="font-size:0.75rem;">PJ</span></th>
                         <th scope="col" class="sortable text-center text-primary" title="Goles" onclick="sortTable(3, 'number')"><i class="bi bi-vinyl-fill"></i><span class="d-none d-sm-inline"> Gol</span> <i class="bi bi-arrow-down-up small ms-1"></i></th>
                         <th scope="col" class="sortable text-center text-warning" title="Asistencias" onclick="sortTable(4, 'number')"><i class="bi bi-cursor-fill"></i><span class="d-none d-sm-inline"> Asi</span> <i class="bi bi-arrow-down-up small ms-1"></i></th>
                         <th scope="col" class="sortable text-center text-danger d-none d-sm-table-cell" title="Goles en Propia" onclick="sortTable(5, 'number')"><i class="bi bi-x-circle-fill"></i><span class="d-none d-md-inline"> PP</span></th>
@@ -218,7 +218,7 @@ $players = $pdo->query($query)->fetchAll();
                                 </div>
                             </td>
                             <td class="text-center text-muted small d-none d-md-table-cell"><?php echo htmlspecialchars($teamName); ?></td>
-                            <td class="text-center fw-bold text-light d-none d-md-table-cell"><?php echo $pj; ?></td>
+                            <td class="text-center fw-bold text-light"><span class="d-none d-md-inline"><?php echo $pj; ?></span><span class="d-inline d-md-none" style="font-size:0.8rem;"><?php echo $pj; ?></span></td>
                             <td class="text-center fw-bold text-primary fs-5"><?php echo $goals; ?></td>
                             <td class="text-center fw-bold text-warning fs-5"><?php echo $assists; ?></td>
                             <td class="text-center fw-bold text-danger d-none d-sm-table-cell"><?php echo $ownGoals; ?></td>

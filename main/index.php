@@ -109,8 +109,8 @@ endif; ?>
                         <th class="py-3 text-center text-success" title="Victorias">V</th>
                         <th class="py-3 text-center text-warning" title="Empates">E</th>
                         <th class="py-3 text-center text-danger" title="Derrotas">D</th>
-                        <th class="py-3 text-center d-none d-md-table-cell" title="Goles a Favor">GF</th>
-                        <th class="py-3 text-center d-none d-md-table-cell" title="Goles en Contra">GC</th>
+                        <th class="py-3 text-center" title="Goles a Favor">GF</th>
+                        <th class="py-3 text-center" title="Goles en Contra">GC</th>
                         <th class="py-3 text-center d-none d-lg-table-cell" title="Diferencia de Goles">DG</th>
                         <th class="py-3 text-center" title="Puntos">Pts</th>
                     </tr>
@@ -127,8 +127,8 @@ foreach ($teams as $team):
                             <td class="text-center fw-bold text-success"><?php echo $team['v']; ?></td>
                             <td class="text-center fw-bold text-warning"><?php echo $team['e']; ?></td>
                             <td class="text-center fw-bold text-danger"><?php echo $team['d']; ?></td>
-                            <td class="text-center d-none d-md-table-cell"><?php echo $team['gf']; ?></td>
-                            <td class="text-center d-none d-md-table-cell"><?php echo $team['gc']; ?></td>
+                            <td class="text-center"><?php echo $team['gf']; ?></td>
+                            <td class="text-center"><?php echo $team['gc']; ?></td>
                             <td class="text-center fw-bold d-none d-lg-table-cell <?php echo $team['dg'] >= 0 ? 'text-success' : 'text-danger'; ?>">
                                 <?php echo ($team['dg'] >= 0 ? '+' : '') . $team['dg']; ?>
                             </td>

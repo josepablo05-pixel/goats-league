@@ -60,7 +60,8 @@ usort($teamRatings, function($a, $b) {
 
 // 2. Máximos Goleadores
 $topScorers = $pdo->query("
-    SELECT u.username, u.profile_picture, t.name as team_name, COUNT(me.id) as total
+    SELECT u.id, u.username, u.profile_picture, t.name as team_name, COUNT(me.id) as total,
+           (SELECT COUNT(DISTINCT ml.match_id) FROM match_lineups ml JOIN matches ma ON ml.match_id = ma.id WHERE ml.player_id = u.id AND ma.status = 'finished') as pj
     FROM match_events me
     JOIN users u ON me.player_id = u.id
     LEFT JOIN teams t ON u.team_id = t.id
@@ -72,7 +73,8 @@ $topScorers = $pdo->query("
 
 // 3. Máximos Asistentes
 $topAssists = $pdo->query("
-    SELECT u.username, u.profile_picture, t.name as team_name, COUNT(me.id) as total
+    SELECT u.id, u.username, u.profile_picture, t.name as team_name, COUNT(me.id) as total,
+           (SELECT COUNT(DISTINCT ml.match_id) FROM match_lineups ml JOIN matches ma ON ml.match_id = ma.id WHERE ml.player_id = u.id AND ma.status = 'finished') as pj
     FROM match_events me
     JOIN users u ON me.player_id = u.id
     LEFT JOIN teams t ON u.team_id = t.id
@@ -84,7 +86,8 @@ $topAssists = $pdo->query("
 
 // 4. Jugadores con Más Media de Estrellas
 $topRatedPlayers = $pdo->query("
-    SELECT u.username, u.profile_picture, t.name as team_name, AVG(mr.rating) as avg_rating
+    SELECT u.id, u.username, u.profile_picture, t.name as team_name, AVG(mr.rating) as avg_rating,
+           (SELECT COUNT(DISTINCT ml.match_id) FROM match_lineups ml JOIN matches ma ON ml.match_id = ma.id WHERE ml.player_id = u.id AND ma.status = 'finished') as pj
     FROM match_ratings mr
     JOIN matches m ON mr.match_id = m.id
     JOIN users u ON mr.target_id = u.id
@@ -100,7 +103,8 @@ $topContributors = $pdo->query("
     SELECT u.id, u.username, u.profile_picture, t.name as team_name,
            SUM(CASE WHEN me.event_type = 'goal'   THEN 1 ELSE 0 END) as goals,
            SUM(CASE WHEN me.event_type = 'assist' THEN 1 ELSE 0 END) as assists,
-           COUNT(me.id) as total
+           COUNT(me.id) as total,
+           (SELECT COUNT(DISTINCT ml.match_id) FROM match_lineups ml JOIN matches ma ON ml.match_id = ma.id WHERE ml.player_id = u.id AND ma.status = 'finished') as pj
     FROM match_events me
     JOIN users u ON me.player_id = u.id
     LEFT JOIN teams t ON u.team_id = t.id
@@ -261,7 +265,10 @@ $topContributors = $pdo->query("
                                     
                                     <div class="flex-grow-1 text-truncate">
                                         <div class="fw-bold fs-6 mb-0"><?php echo htmlspecialchars($player['username']); ?></div>
-                                        <small class="text-muted" style="font-size: 0.70rem;"><?php echo htmlspecialchars($player['team_name'] ?? 'Sin equipo'); ?></small>
+                                        <small class="text-muted" style="font-size: 0.70rem;">
+                                            <?php echo htmlspecialchars($player['team_name'] ?? 'Sin equipo'); ?> 
+                                            <span class="ms-1 px-1 bg-secondary text-white rounded" style="font-size:0.65rem; opacity:0.8;"><?php echo $player['pj']; ?> PJ</span>
+                                        </small>
                                     </div>
                                     
                                     <span class="badge bg-primary rounded-pill ms-2 fs-6 px-3"><?php echo $player['total']; ?></span>
@@ -298,7 +305,10 @@ $topContributors = $pdo->query("
                                     
                                     <div class="flex-grow-1 text-truncate">
                                         <div class="fw-bold fs-6 mb-0"><?php echo htmlspecialchars($player['username']); ?></div>
-                                        <small class="text-muted" style="font-size: 0.70rem;"><?php echo htmlspecialchars($player['team_name'] ?? 'Sin equipo'); ?></small>
+                                        <small class="text-muted" style="font-size: 0.70rem;">
+                                            <?php echo htmlspecialchars($player['team_name'] ?? 'Sin equipo'); ?> 
+                                            <span class="ms-1 px-1 bg-secondary text-white rounded" style="font-size:0.65rem; opacity:0.8;"><?php echo $player['pj']; ?> PJ</span>
+                                        </small>
                                     </div>
                                     
                                     <span class="badge bg-warning text-dark rounded-pill ms-2 fs-6 px-3"><?php echo $player['total']; ?></span>
@@ -335,7 +345,10 @@ $topContributors = $pdo->query("
                                     
                                     <div class="flex-grow-1 text-truncate">
                                         <div class="fw-bold fs-6 mb-0"><?php echo htmlspecialchars($player['username']); ?></div>
-                                        <small class="text-muted" style="font-size: 0.70rem;"><?php echo htmlspecialchars($player['team_name'] ?? 'Sin equipo'); ?></small>
+                                        <small class="text-muted" style="font-size: 0.70rem;">
+                                            <?php echo htmlspecialchars($player['team_name'] ?? 'Sin equipo'); ?> 
+                                            <span class="ms-1 px-1 bg-secondary text-white rounded" style="font-size:0.65rem; opacity:0.8;"><?php echo $player['pj']; ?> PJ</span>
+                                        </small>
                                     </div>
                                     
                                     <span class="badge bg-success rounded-pill ms-2 fs-6 px-3"><?php echo number_format($player['avg_rating'], 2); ?></span>
@@ -382,7 +395,10 @@ $topContributors = $pdo->query("
                                 <span class="fw-bold"><?php echo htmlspecialchars($p['username']); ?></span>
                             </div>
                         </td>
-                        <td class="text-muted small"><?php echo htmlspecialchars($p['team_name'] ?? 'Sin equipo'); ?></td>
+                        <td class="text-muted small">
+                            <?php echo htmlspecialchars($p['team_name'] ?? 'Sin equipo'); ?>
+                            <span class="ms-1 px-1 bg-secondary text-white rounded" style="font-size:0.65rem; opacity:0.8;"><?php echo $p['pj']; ?> PJ</span>
+                        </td>
                         <td class="text-center"><span class="badge bg-primary rounded-pill px-3"><?php echo $p['goals']; ?></span></td>
                         <td class="text-center"><span class="badge bg-warning text-dark rounded-pill px-3"><?php echo $p['assists']; ?></span></td>
                         <td class="text-center"><span class="badge bg-danger rounded-pill fs-6 px-3 fw-bold"><?php echo $p['total']; ?></span></td>
