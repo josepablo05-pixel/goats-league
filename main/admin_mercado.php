@@ -1,5 +1,5 @@
 <?php
-session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/']);
+session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/', 'httponly' => true, 'secure' => true, 'samesite' => 'Lax']);
 session_start();
 require_once __DIR__ . '/db.php';
 
@@ -42,40 +42,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $matches = $stmtMatches->fetchAll();
         $payoutCount = 0;
         
-        foreach ($matches as $match) {
-            $mId = $match['id'];
-            $t1 = $match['team1_id'];
-            $t2 = $match['team2_id'];
+        if (!empty($matches)) {
+            $matchIds = array_column($matches, 'id');
+            $placeholders = implode(',', array_fill(0, count($matchIds), '?'));
             
-            foreach ([$t1, $t2] as $tid) {
-                // Calc top 7 players avg rating for this team in this match
-                $stmtPlayers = $pdo->prepare("
-                    SELECT mr.target_id, AVG(mr.rating) as p_avg 
-                    FROM match_ratings mr
-                    JOIN users u ON mr.target_id = u.id
-                    WHERE mr.match_id = ? AND u.team_id = ?
-                    GROUP BY mr.target_id ORDER BY p_avg DESC LIMIT 7
-                ");
-                $stmtPlayers->execute([$mId, $tid]);
-                $top = $stmtPlayers->fetchAll();
-                
-                $tAvg = 0;
-                if (count($top) > 0) {
-                    $sum = 0;
-                    foreach ($top as $p) $sum += (float)$p['p_avg'];
-                    $tAvg = $sum / count($top);
-                }
-                
-                if ($tAvg > 0) {
-                    // Give money
-                    $pdo->prepare("UPDATE teams SET budget = budget + ? WHERE id = ?")->execute([$tAvg, $tid]);
-                    // Log finances
-                    $pdo->prepare("INSERT INTO team_finances (team_id, match_id, amount) VALUES (?, ?, ?)")->execute([$tid, $mId, $tAvg]);
-                }
+            // Bulk fetch all relevant match ratings
+            $stmtRatings = $pdo->prepare("
+                SELECT mr.match_id, mr.target_id, u.team_id, AVG(mr.rating) as p_avg
+                FROM match_ratings mr
+                JOIN users u ON mr.target_id = u.id
+                WHERE mr.match_id IN ($placeholders)
+                GROUP BY mr.match_id, u.team_id, mr.target_id
+            ");
+            $stmtRatings->execute($matchIds);
+            $allRatings = $stmtRatings->fetchAll();
+
+            $teamMatchRatings = [];
+            foreach ($allRatings as $r) {
+                $mId = $r['match_id'];
+                $tId = $r['team_id'];
+                $teamMatchRatings[$mId][$tId][] = (float)$r['p_avg'];
             }
-            // Mark as paid
-            $pdo->prepare("UPDATE matches SET revenue_paid = 1 WHERE id = ?")->execute([$mId]);
-            $payoutCount++;
+
+            $pdo->beginTransaction();
+            try {
+                $updateTeamStmt = $pdo->prepare("UPDATE teams SET budget = budget + ? WHERE id = ?");
+                $insertFinanceStmt = $pdo->prepare("INSERT INTO team_finances (team_id, match_id, amount) VALUES (?, ?, ?)");
+                $updateMatchStmt = $pdo->prepare("UPDATE matches SET revenue_paid = 1 WHERE id = ?");
+                
+                foreach ($matches as $match) {
+                    $mId = $match['id'];
+                    $t1 = $match['team1_id'];
+                    $t2 = $match['team2_id'];
+
+                    foreach ([$t1, $t2] as $tid) {
+                        if (isset($teamMatchRatings[$mId][$tid])) {
+                            $ratings = $teamMatchRatings[$mId][$tid];
+                            rsort($ratings); // Sort descending to get top 7
+                            $top = array_slice($ratings, 0, 7);
+
+                            $tAvg = 0;
+                            if (count($top) > 0) {
+                                $tAvg = array_sum($top) / count($top);
+                            }
+
+                            if ($tAvg > 0) {
+                                // Give money
+                                $updateTeamStmt->execute([$tAvg, $tid]);
+                                // Log finances
+                                $insertFinanceStmt->execute([$tid, $mId, $tAvg]);
+                            }
+                        }
+                    }
+                    // Mark as paid
+                    $updateMatchStmt->execute([$mId]);
+                    $payoutCount++;
+                }
+                $pdo->commit();
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                throw $e;
+            }
         }
         header("Location: admin_mercado.php?msg=paid&count=" . $payoutCount);
         exit;

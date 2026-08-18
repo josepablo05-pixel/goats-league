@@ -1,5 +1,5 @@
 <?php
-session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/']);
+session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/', 'httponly' => true, 'secure' => true, 'samesite' => 'Lax']);
 session_start();
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/cloudinary.php';

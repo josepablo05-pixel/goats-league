@@ -1,7 +1,14 @@
 <?php
-session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/']);
+session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/', 'httponly' => true, 'secure' => true, 'samesite' => 'Lax']);
 session_start();
 require_once __DIR__ . '/db.php';
+
+// Check market state
+$mktStmt = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'market_open'");
+$isMarketOpen = (bool)$mktStmt->fetchColumn();
+
+// Auth check
+if (!isset($_SESSION['user_id'])) { header("Location: index.php"); exit; }
 
 // Mini-API para cargar jugadores por equipo (AJAX)
 if (isset($_GET['get_players'])) {
@@ -12,13 +19,6 @@ if (isset($_GET['get_players'])) {
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
     exit;
 }
-
-// Check market state
-$mktStmt = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'market_open'");
-$isMarketOpen = (bool)$mktStmt->fetchColumn();
-
-// Auth check
-if (!isset($_SESSION['user_id'])) { header("Location: index.php"); exit; }
 $myUserId = $_SESSION['user_id'];
 
 // Load my info
@@ -477,10 +477,22 @@ function getPlayerNames($ids, $pdo) {
                     filteredData.forEach(p => {
                         const div = document.createElement('div');
                         div.className = 'form-check small';
-                        div.innerHTML = `
-                            <input class="form-check-input" type="checkbox" name="requested_players[]" value="${p.id}" id="rp${p.id}">
-                            <label class="form-check-label" for="rp${p.id}">${p.username}</label>
-                        `;
+
+                        const input = document.createElement('input');
+                        input.className = 'form-check-input';
+                        input.type = 'checkbox';
+                        input.name = 'requested_players[]';
+                        input.value = p.id;
+                        input.id = 'rp' + p.id;
+
+                        const label = document.createElement('label');
+                        label.className = 'form-check-label';
+                        label.setAttribute('for', 'rp' + p.id);
+                        label.textContent = p.username;
+
+                        div.appendChild(input);
+                        div.appendChild(label);
+
                         list.appendChild(div);
                     });
                 }

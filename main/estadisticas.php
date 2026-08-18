@@ -1,5 +1,5 @@
 <?php
-session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/']);
+session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/', 'httponly' => true, 'secure' => true, 'samesite' => 'Lax']);
 session_start();
 require_once __DIR__ . '/db.php';
 
@@ -7,38 +7,66 @@ require_once __DIR__ . '/db.php';
 $teams = $pdo->query("SELECT * FROM teams")->fetchAll();
 $teamRatings = [];
 
+// Obtener todos los partidos finalizados y cerrados
+$matchesQuery = $pdo->query("SELECT id, team1_id, team2_id FROM matches WHERE status = 'finished' AND voting_closed = 1")->fetchAll();
+
+$validMatches = [];
+$teamMatches = [];
+foreach ($matchesQuery as $m) {
+    $mId = $m['id'];
+    $t1 = $m['team1_id'];
+    $t2 = $m['team2_id'];
+    $validMatches[$mId] = true;
+
+    if (!isset($teamMatches[$t1])) $teamMatches[$t1] = [];
+    if (!isset($teamMatches[$t2])) $teamMatches[$t2] = [];
+    $teamMatches[$t1][] = $mId;
+    $teamMatches[$t2][] = $mId;
+}
+
+if (!empty($validMatches)) {
+    $matchIdsStr = implode(',', array_keys($validMatches));
+    // Obtener la media de cada jugador en los partidos válidos
+    $stmtAllPlayers = $pdo->query("
+        SELECT mr.match_id, u.team_id, mr.target_id, AVG(mr.rating) as player_avg
+        FROM match_ratings mr
+        JOIN users u ON mr.target_id = u.id
+        WHERE mr.match_id IN ($matchIdsStr) AND u.team_id IS NOT NULL
+        GROUP BY mr.match_id, u.team_id, mr.target_id
+    ");
+    $allPlayerRatings = $stmtAllPlayers->fetchAll();
+} else {
+    $allPlayerRatings = [];
+}
+
+$ratingsGrouped = [];
+foreach ($allPlayerRatings as $row) {
+    $mId = $row['match_id'];
+    $tId = $row['team_id'];
+    $ratingsGrouped[$mId][$tId][] = (float)$row['player_avg'];
+}
+
+// Ordenar de mayor a menor y quedarnos con los 7 mejores
+foreach ($ratingsGrouped as $mId => &$teamsInMatch) {
+    foreach ($teamsInMatch as $tId => &$avgs) {
+        rsort($avgs);
+        $avgs = array_slice($avgs, 0, 7);
+    }
+}
+unset($teamsInMatch, $avgs);
+
 foreach ($teams as $team) {
     $teamId = $team['id'];
-    
-    // Obtener todos los partidos finalizados y cerrados en los que participó este equipo
-    $stmtMatches = $pdo->prepare("SELECT id FROM matches WHERE (team1_id = ? OR team2_id = ?) AND status = 'finished' AND voting_closed = 1");
-    $stmtMatches->execute([$teamId, $teamId]);
-    $matches = $stmtMatches->fetchAll();
-    
     $teamMatchAvgs = [];
     
-    foreach ($matches as $match) {
-        $matchId = $match['id'];
-        
-        // Obtener la media de cada jugador de ESTE equipo en ESTE partido (max 7)
-        $stmtPlayers = $pdo->prepare("
-            SELECT mr.target_id, AVG(mr.rating) as player_avg 
-            FROM match_ratings mr
-            JOIN users u ON mr.target_id = u.id
-            WHERE mr.match_id = ? AND u.team_id = ?
-            GROUP BY mr.target_id
-            ORDER BY player_avg DESC
-            LIMIT 7
-        ");
-        $stmtPlayers->execute([$matchId, $teamId]);
-        $topPlayers = $stmtPlayers->fetchAll();
-        
-        if (count($topPlayers) > 0) {
-            $sum = 0;
-            foreach ($topPlayers as $tp) {
-                $sum += (float)$tp['player_avg'];
+    $matches = $teamMatches[$teamId] ?? [];
+
+    foreach ($matches as $matchId) {
+        if (isset($ratingsGrouped[$matchId][$teamId])) {
+            $topPlayersAvgs = $ratingsGrouped[$matchId][$teamId];
+            if (count($topPlayersAvgs) > 0) {
+                $teamMatchAvgs[] = array_sum($topPlayersAvgs) / count($topPlayersAvgs);
             }
-            $teamMatchAvgs[] = $sum / count($topPlayers);
         }
     }
     

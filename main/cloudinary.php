@@ -4,9 +4,9 @@
  * Usa variables de entorno o constantes definidas aquí si no las hay.
  */
 
-define('CLOUDINARY_CLOUD_NAME', getenv('CLOUDINARY_CLOUD_NAME') ?: 'dx45ahyhn');
-define('CLOUDINARY_API_KEY',    getenv('CLOUDINARY_API_KEY')    ?: '187943889261986');
-define('CLOUDINARY_API_SECRET', getenv('CLOUDINARY_API_SECRET') ?: '4OBuLFOgaJywZxOR3NvV1AmYYNw');
+define('CLOUDINARY_CLOUD_NAME', getenv('CLOUDINARY_CLOUD_NAME') ?: '');
+define('CLOUDINARY_API_KEY',    getenv('CLOUDINARY_API_KEY')    ?: '');
+define('CLOUDINARY_API_SECRET', getenv('CLOUDINARY_API_SECRET') ?: '');
 
 /**
  * Sube un archivo local a Cloudinary y devuelve la URL segura.

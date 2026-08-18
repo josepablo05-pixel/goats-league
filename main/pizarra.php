@@ -1,5 +1,5 @@
 <?php
-session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/']);
+session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/', 'httponly' => true, 'secure' => true, 'samesite' => 'Lax']);
 session_start();
 require_once __DIR__ . '/db.php';
 
@@ -110,7 +110,10 @@ if (isset($_GET['load_tactic'])) {
     }
     $rowLoad = $stmtLoad->fetch();
     if ($rowLoad) {
-        $loadedPositions = $rowLoad['positions'];
+        $decoded = json_decode($rowLoad['positions'], true);
+        if (json_last_error() === JSON_ERROR_NONE) {
+            $loadedPositions = json_encode($decoded, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
+        }
     }
 }
 // --- FIN SISTEMA DE GUARDADO ---

@@ -1,4 +1,15 @@
 <?php
+session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/', 'httponly' => true, 'secure' => true, 'samesite' => 'Lax']);
+session_start();
+require_once __DIR__ . '/db.php';
+
+// Auth and Admin Check
+if (!isset($_SESSION['user_id'])) { header("Location: index.php"); exit; }
+$stmt = $pdo->prepare("SELECT role FROM users WHERE id = ?");
+$stmt->execute([$_SESSION['user_id']]);
+$meInfo = $stmt->fetch();
+if (!$meInfo || $meInfo['role'] !== 'admin') { header("Location: index.php"); exit; }
+
 $target_dir = "/app/data/";
 $target_file = $target_dir . "database.sqlite";
 

@@ -1,5 +1,5 @@
 <?php
-session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/']);
+session_set_cookie_params(['lifetime' => 86400 * 30, 'path' => '/', 'httponly' => true, 'secure' => true, 'samesite' => 'Lax']);
 session_start();
 require_once __DIR__ . '/db.php';
 
@@ -82,7 +82,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $stmt = $pdo->prepare("INSERT IGNORE INTO match_lineups (match_id, team_id, player_id) VALUES (?, ?, ?)");
             $stmt->execute([$matchId, $teamIdForLineup, $playerId]);
-        } catch (PDOException $e) {}
+        } catch (PDOException $e) {
+            error_log("Error DB al añadir lineup: " . $e->getMessage());
+            $_SESSION['error'] = "Ha ocurrido un error al intentar añadir al jugador a la alineación. Por favor, inténtalo de nuevo.";
+        }
     }
     
     // Acción: Capitán o Admin elimina a un jugador de la alineación
@@ -1042,7 +1045,8 @@ foreach ($stmtStats->fetchAll() as $row) {
                     });
                 } else {
                     // Error: mostrar mensaje rojo con el texto del servidor
-                    errMsg.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> ' + (data.error || 'Error desconocido.');
+                    errMsg.innerHTML = '<i class="bi bi-exclamation-triangle-fill me-2"></i> ';
+                    errMsg.appendChild(document.createTextNode(data.error || 'Error desconocido.'));
                     errMsg.classList.remove('d-none');
                 }
             })

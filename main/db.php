@@ -18,8 +18,12 @@ if ($dbUrl) {
 }
 
 try {
-    // Intentamos conectar
-    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8", $user, $pass);
+    // Intentamos conectar (permitir mock DB url en testing)
+    if (strpos($dbUrl ?? '', 'sqlite:') === 0) {
+        $pdo = new PDO($dbUrl);
+    } else {
+        $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8", $user, $pass);
+    }
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
